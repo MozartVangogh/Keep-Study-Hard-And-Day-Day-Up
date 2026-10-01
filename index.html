@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>团队打卡 · 工时调休版</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#f2f5f9}
+body{display:flex;align-items:center;justify-content:center;padding:12px;min-height:100vh}
+.app-card{width:100%;max-width:520px;margin:0 auto;background:#fff;border-radius:32px;box-shadow:0 12px 30px rgba(0,20,50,.1);padding:20px 16px 24px}
+h1{font-size:1.5rem;font-weight:700;color:#0b1d2e;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+h1 svg{width:26px;height:26px;flex-shrink:0}
+.subhead{color:#5f6c80;font-size:.85rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.section{margin-top:16px;border-top:1px solid #e4eaf0;padding-top:16px}
+.section-title{font-size:.82rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:#5c6f87;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.status-badge{background:#d1f0e0;color:#0a5c3a;border-radius:20px;padding:4px 12px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.status-badge.off{background:#f1e5d0;color:#8a5a1f}
+.status-badge.done{background:#cfe4ff;color:#0b4a8a}
+.status-badge.warn{background:#ffe0e0;color:#a02020}
+.flex-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:none;background:#fff;padding:12px 16px;border-radius:60px;font-weight:600;font-size:.9rem;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .15s;border:1px solid #cfdbe8;color:#153e5c;flex:1 0 auto;min-height:48px;touch-action:manipulation;user-select:none}
+.btn-primary{background:#0b1d2e;border:1px solid #0b1d2e;color:#fff;box-shadow:0 6px 12px rgba(11,29,46,.2)}
+.btn-primary:active{background:#1a3248;transform:scale(.97)}
+.btn-primary:disabled,.btn:disabled{opacity:.5;pointer-events:none;filter:grayscale(.3)}
+.btn-secondary{background:#f8fafd;border:1px solid #cfdbe8}
+.btn-secondary:active{background:#e4ecf5;transform:scale(.97)}
+.btn-small{padding:10px 14px;font-size:.8rem;min-height:40px}
+.icon{width:18px;height:18px;fill:currentColor;flex-shrink:0}
+.task-list{display:flex;flex-direction:column;gap:8px;margin:12px 0 8px}
+.task-item{display:flex;align-items:center;gap:10px;background:#f7faff;padding:12px;border-radius:18px;border:1px solid #e0e9f2}
+.task-check{width:24px;height:24px;border-radius:30px;border:2px solid #c2d3e6;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.task-check.completed{background:#0b1d2e;border-color:#0b1d2e}
+.task-check.completed svg{fill:#fff;width:14px;height:14px}
+.task-text{flex:1;font-size:.95rem;color:#1c2e40;word-break:break-word;line-height:1.3}
+.task-text.completed{text-decoration:line-through;color:#7b8b9f}
+.work-hours-row{display:flex;justify-content:space-between;align-items:center;background:#f2f7ff;padding:12px 16px;border-radius:24px;margin-bottom:8px}
+.work-label{font-size:.9rem;font-weight:500;color:#2a4058}
+.work-value{font-size:1.1rem;font-weight:700;color:#0b1d2e;background:#fff;padding:6px 14px;border-radius:40px;border:1px solid #dbe5f0}
+.work-value.negative{color:#c33;border-color:#f0c0c0;background:#fff4f4}
+.time-stamp{font-size:.72rem;color:#6b7f94;background:#f2f6fc;padding:4px 10px;border-radius:40px;display:inline-block}
+.hidden{display:none!important}
+.empty-message{font-size:.85rem;color:#8c9db0;text-align:center;padding:16px 0;background:#fafdff;border-radius:40px;border:1px dashed #d0dfee}
+.divider{margin:12px 0 8px;height:1px;background:#e4eaf0}
+.toast-tip{background:#333e4d;color:#fff;font-size:.8rem;border-radius:30px;padding:8px 14px;position:fixed;bottom:30px;left:50%;transform:translateX(-50%);opacity:.9;z-index:999;display:none;white-space:normal;text-align:center;max-width:90%;line-height:1.4;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.admin-panel{background:#f8fafd;border-radius:24px;padding:16px;margin-top:8px;border:1px solid #dbe5f0}
+.admin-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #e4eaf0;flex-wrap:wrap;gap:8px}
+.admin-row:last-child{border-bottom:none}
+.admin-label{font-size:.85rem;color:#2a4058;font-weight:500}
+.admin-input{border:1px solid #d5e0ec;border-radius:20px;padding:8px 12px;font-size:.85rem;width:100%;max-width:220px;text-align:right;outline:none}
+.admin-input:focus{border-color:#0b1d2e}
+.admin-btn{background:#0b1d2e;color:#fff;border:none;border-radius:30px;padding:10px 16px;font-size:.8rem;font-weight:600;cursor:pointer;min-height:40px}
+.admin-btn:active{background:#1a3248;transform:scale(.97)}
+.admin-btn-secondary{background:#eef3fa;color:#0b1d2e;border:1px solid #d5e0ec}
+.modal-mask{position:fixed;inset:0;background:rgba(11,29,46,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:1000}
+.modal-box{background:#fff;border-radius:24px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto;padding:20px 16px}
+.modal-title{font-size:1.1rem;font-weight:700;color:#0b1d2e;margin-bottom:6px}
+.modal-sub{font-size:.8rem;color:#6b7f94;margin-bottom:14px;line-height:1.5}
+.modal-task-row{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.modal-task-row .m-name{flex:2;min-width:0}
+.modal-task-row .m-hours{flex:1;min-width:0;max-width:90px}
+.modal-task-row input{border:1px solid #d5e0ec;border-radius:12px;padding:10px 12px;font-size:.85rem;outline:none;width:100%}
+.modal-task-row input:focus{border-color:#0b1d2e}
+.modal-task-row .m-del{background:#ffe9e9;border:none;border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#c33;flex-shrink:0}
+.modal-summary{background:#f2f7ff;border-radius:16px;padding:12px;margin:12px 0;font-size:.85rem;color:#2a4058;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.modal-footer{display:flex;gap:8px;margin-top:14px}
+.modal-footer .btn{flex:1}
+.review-card{background:#fff;border-radius:16px;padding:12px;margin-bottom:10px;border:1px solid #e0e9f2}
+.review-card .r-title{font-weight:600;color:#0b1d2e;font-size:.9rem;margin-bottom:8px;word-break:break-word}
+.review-card .r-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.review-card .r-row label{font-size:.8rem;color:#5c6f87}
+.review-card .r-row input[type=number]{border:1px solid #d5e0ec;border-radius:12px;padding:8px 10px;font-size:.85rem;width:100px;outline:none}
+.review-card .r-row select{border:1px solid #d5e0ec;border-radius:12px;padding:8px 10px;font-size:.85rem;outline:none;background:#fff}
+.review-card .r-hint{font-size:.75rem;color:#8c9db0;margin-top:6px}
+.info-box{background:#fff8e6;border:1px solid #ffe0a0;border-radius:14px;padding:10px 12px;font-size:.8rem;color:#7a5a10;margin:10px 0;line-height:1.5}
+.info-box.danger{background:#ffe9e9;border-color:#f0c0c0;color:#a02020}
+.login-wrap{width:100%;max-width:400px;margin:0 auto;background:#fff;border-radius:32px;box-shadow:0 12px 30px rgba(0,20,50,.1);padding:32px 24px 28px}
+.login-wrap h1{font-size:1.6rem;font-weight:700;color:#0b1d2e;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.login-wrap .login-sub{color:#6b7f94;font-size:.85rem;margin-bottom:24px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:.8rem;color:#5c6f87;margin-bottom:6px;font-weight:500}
+.login-field input{width:100%;border:1px solid #d5e0ec;border-radius:16px;padding:14px 16px;font-size:.95rem;outline:none;transition:.15s;min-height:48px}
+.login-field input:focus{border-color:#0b1d2e;box-shadow:0 0 0 3px rgba(11,29,46,.1)}
+.login-btn{width:100%;background:#0b1d2e;color:#fff;border:none;border-radius:60px;padding:14px;font-size:.95rem;font-weight:600;cursor:pointer;min-height:50px;margin-top:8px;box-shadow:0 6px 12px rgba(11,29,46,.2)}
+.login-btn:active{background:#1a3248;transform:scale(.98)}
+.login-error{background:#ffe9e9;border:1px solid #f0c0c0;color:#a02020;border-radius:14px;padding:10px 12px;font-size:.82rem;margin-bottom:14px;line-height:1.4}
+.user-bar{display:flex;justify-content:space-between;align-items:center;background:#f2f7ff;border-radius:20px;padding:10px 14px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.user-bar .u-name{font-size:.85rem;color:#0b1d2e;font-weight:600}
+.user-bar .u-role{font-size:.7rem;color:#6b7f94;background:#fff;padding:3px 10px;border-radius:20px;border:1px solid #dbe5f0;margin-left:6px}
+.user-bar .u-logout{background:#fff;border:1px solid #d5e0ec;border-radius:20px;padding:6px 14px;font-size:.75rem;color:#5c6f87;cursor:pointer;min-height:32px}
+.user-bar .u-logout:active{background:#e4ecf5}
+@media(max-width:400px){.app-card{padding:16px 12px 20px;border-radius:24px}h1{font-size:1.3rem}.btn{padding:10px 14px;min-height:44px;font-size:.85rem}.work-value{font-size:1rem;padding:4px 12px}.task-text{font-size:.9rem}.admin-input{max-width:180px}}
+button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:0;background:transparent}
+</style>
+</head>
+<body>
+<!-- 登录页 -->
+<div id="loginPage">
+  <div class="login-wrap">
+    <h1>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0b1d2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      团队打卡
+    </h1>
+    <div class="login-sub">请登录后使用打卡功能</div>
+    <div id="loginError" class="login-error hidden"></div>
+    <div class="login-field">
+      <label>用户名</label>
+      <input type="text" id="loginUsername" placeholder="请输入用户名" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn">登 录</button>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div class="app-card hidden" id="appCard">
+  <h1 id="mainTitle">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0b1d2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    团队打卡
+  </h1>
+
+  <div class="user-bar">
+    <div>
+      <span class="u-name" id="currentUserName">—</span>
+      <span class="u-role" id="currentUserRole">成员</span>
+    </div>
+    <button class="u-logout" id="logoutBtn">退出登录</button>
+  </div>
+
+  <div class="subhead">
+    <span style="font-size:.78rem;color:#6b7f94">直接打卡，无需定位</span>
+    <span id="currentDate" class="time-stamp"></span>
+  </div>
+
+  <div class="section" style="margin-top:0;border-top:none;padding-top:0">
+    <div class="section-title"><span>📅 今日类型</span><span id="dayTypeBadge" class="status-badge off">加载中</span></div>
+    <div id="dayRuleHint" style="font-size:.78rem;color:#6b7f94;line-height:1.5"></div>
+  </div>
+
+  <div class="flex-row" style="margin-bottom:6px;margin-top:12px">
+    <button class="btn btn-primary" id="checkInBtn">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14l-4-4 1.41-1.41L10 13.17l6.59-6.59L18 8l-8 8z"/></svg>
+      签到
+    </button>
+    <button class="btn btn-secondary" id="checkOutBtn" disabled>
+      <svg class="icon" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+      签退
+    </button>
+  </div>
+
+  <div id="checkInInfo" class="hidden" style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+    <span class="time-stamp" id="checkInTimeDisplay"></span>
+    <span class="status-badge" id="checkInStatusBadge">已签到</span>
+  </div>
+
+  <div id="taskSection" class="section hidden">
+    <div class="section-title"><span>📋 今日任务（已锁定）</span><span class="status-badge" id="taskProgressBadge">0/0</span></div>
+    <div id="taskListContainer" class="task-list"></div>
+    <div id="taskHintBox" style="margin-top:12px"></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" id="reviewBtn" style="width:100%">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM7 10h2v2H7v-2zm0 4h2v2H7v-2zm4-4h6v2h-6v-2zm0 4h6v2h-6v-2z"/></svg>
+        签退
+      </button>
+    </div>
+  </div>
+
+  <div id="reviewSummarySection" class="section hidden">
+    <div class="section-title"><span>🔍 今日回顾</span><span class="status-badge done" id="reviewTimeBadge"></span></div>
+    <div id="reviewContent" style="background:#f4f9fe;border-radius:24px;padding:16px"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span>⏱️ 工时 & 调休</span><span id="workStatus" class="status-badge off">未签到</span></div>
+    <div class="work-hours-row"><span class="work-label">今日目标工时</span><span class="work-value" id="targetHoursDisplay">10.0 h</span></div>
+    <div class="work-hours-row"><span class="work-label">累积调休余额</span><span class="work-value" id="compTimeDisplay">0.0 h</span></div>
+    <div class="info-box" style="margin-top:8px">调休余额由系统根据打卡自动增减，无法手动修改。</div>
+  </div>
+
+  <div class="section hidden" id="adminSection">
+    <div class="section-title"><span>⚙️ 管理者设置</span><span class="status-badge" style="background:#e4eaf0;color:#0b1d2e">仅管理员可见</span></div>
+    <div class="admin-panel">
+      <div class="admin-row">
+        <span class="admin-label">团队名称</span>
+        <input type="text" class="admin-input" id="adminTeamName" value="团队打卡">
+      </div>
+      <div class="admin-row">
+        <span class="admin-label">每日目标工时 (≥10)</span>
+        <input type="number" class="admin-input" id="adminTargetHours" value="10" step="0.5" min="10" max="24">
+      </div>
+      <div class="admin-row">
+        <span class="admin-label">法定节假日（每行一个 YYYY-MM-DD）</span>
+        <textarea class="admin-input" id="adminHolidays" style="min-height:80px;text-align:left;font-size:.75rem" placeholder="2025-10-01&#10;2025-10-02"></textarea>
+      </div>
+      <div class="admin-row">
+        <span class="admin-label">调休上班日（周末但上班，每行一个 YYYY-MM-DD）</span>
+        <textarea class="admin-input" id="adminWorkdays" style="min-height:80px;text-align:left;font-size:.75rem" placeholder="2025-10-11"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button class="admin-btn" id="saveAdminSettings" style="flex:1">保存设置</button>
+        <button class="admin-btn admin-btn-secondary" id="resetAllData" style="flex:1">清除所有数据</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast-tip"></div>
+<div id="modalContainer"></div>
+
+<script>
+(function(){
+  var USERS = {
+    'admin': { password: '123456', name: '管理员', role: 'admin' },
+    'user1': { password: '123456', name: '成员1',  role: 'user' },
+    'user2': { password: '123456', name: '成员2',  role: 'user' }
+  };
+  var SESSION_KEY = 'team_punch_session';
+
+  var currentUser = null;
+
+  var toastEl=document.getElementById('toast');var toastTimer=null;
+  function showToast(msg,dur){dur=dur||2600;if(!toastEl)return;toastEl.textContent=msg;toastEl.style.display='block';if(toastTimer)clearTimeout(toastTimer);toastTimer=setTimeout(function(){toastEl.style.display='none';},dur);}
+  function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+  function formatTime(s){if(!s)return'';return new Date(s).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});}
+  function pad(n){return n<10?'0'+n:''+n;}
+  function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+  function round1(n){return Math.round(n*10)/10;}
+
+  var BUILTIN_HOLIDAYS_2025=[
+    '2025-01-01','2025-01-28','2025-01-29','2025-01-30','2025-01-31','2025-02-01','2025-02-02','2025-02-03','2025-02-04',
+    '2025-04-04','2025-04-05','2025-04-06',
+    '2025-05-01','2025-05-02','2025-05-03','2025-05-04','2025-05-05',
+    '2025-05-31','2025-06-01','2025-06-02',
+    '2025-10-01','2025-10-02','2025-10-03','2025-10-04','2025-10-05','2025-10-06','2025-10-07','2025-10-08'
+  ];
+  var BUILTIN_HOLIDAYS_2026=[
+    '2026-01-01','2026-01-02','2026-01-03',
+    '2026-02-15','2026-02-16','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-02-21',
+    '2026-04-04','2026-04-05','2026-04-06',
+    '2026-05-01','2026-05-02','2026-05-03','2026-05-04','2026-05-05',
+    '2026-06-19','2026-06-20','2026-06-21',
+    '2026-09-25','2026-09-26','2026-09-27',
+    '2026-10-01','2026-10-02','2026-10-03','2026-10-04','2026-10-05','2026-10-06','2026-10-07'
+  ];
+  var BUILTIN_WORKDAYS_2025=['2025-01-26','2025-02-08','2025-04-27','2025-09-28','2025-10-11'];
+  var BUILTIN_WORKDAYS_2026=['2026-02-14','2026-02-28','2026-04-26','2026-09-19','2026-10-10'];
+
+  var DEFAULT_STATE={
+    checkInTime:null,checkOutTime:null,tasks:[],reviewSubmitted:false,checkInType:null,
+    dayEffectiveHours:0,dayReportedHours:0,overtimeAdded:0,leaveDeducted:0,
+    checkedInLeave:0,
+    targetHours:10.0,compTime:0.0,isCheckedIn:false,isCheckedOut:false,
+    teamName:'团队打卡',holidaysExtra:[],workdaysExtra:[],
+  };
+  var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  var STORAGE_KEY_BASE = 'team_punch_v4_';
+
+  function storageKey(){return STORAGE_KEY_BASE + (currentUser ? currentUser.username : 'guest');}
+
+  function loadState(){
+    state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    if(!currentUser) return;
+    var saved = localStorage.getItem(storageKey());
+    if(saved){
+      try{
+        var p = JSON.parse(saved);
+        state = Object.assign({}, DEFAULT_STATE, p);
+        if(state.checkInTime){
+          var d1=new Date(state.checkInTime).toDateString();
+          var d2=new Date().toDateString();
+          if(d1!==d2) resetDaily();
+        }
+      }catch(e){}
+    }
+  }
+  function resetDaily(){
+    state.checkInTime=null;state.checkOutTime=null;state.tasks=[];
+    state.isCheckedIn=false;state.isCheckedOut=false;state.reviewSubmitted=false;
+    state.checkInType=null;state.dayEffectiveHours=0;state.dayReportedHours=0;
+    state.overtimeAdded=0;state.leaveDeducted=0;state.checkedInLeave=0;
+  }
+  function saveState(){
+    if(!currentUser) return;
+    var toSave={checkInTime:state.checkInTime,checkOutTime:state.checkOutTime,tasks:state.tasks,
+      reviewSubmitted:state.reviewSubmitted,targetHours:state.targetHours,compTime:state.compTime,
+      isCheckedIn:state.isCheckedIn,isCheckedOut:state.isCheckedOut,teamName:state.teamName,
+      checkInType:state.checkInType,dayEffectiveHours:state.dayEffectiveHours,dayReportedHours:state.dayReportedHours,
+      overtimeAdded:state.overtimeAdded,leaveDeducted:state.leaveDeducted,checkedInLeave:state.checkedInLeave,
+      holidaysExtra:state.holidaysExtra,workdaysExtra:state.workdaysExtra};
+    localStorage.setItem(storageKey(),JSON.stringify(toSave));
+  }
+
+  function isHoliday(d){var s=ymd(d);var list=BUILTIN_HOLIDAYS_2025.concat(BUILTIN_HOLIDAYS_2026).concat(state.holidaysExtra||[]);return list.indexOf(s)>=0;}
+  function isMakeupWorkday(d){var s=ymd(d);var list=BUILTIN_WORKDAYS_2025.concat(BUILTIN_WORKDAYS_2026).concat(state.workdaysExtra||[]);return list.indexOf(s)>=0;}
+  function getDayType(d){if(isHoliday(d))return'off';if(isMakeupWorkday(d))return'work';var dow=d.getDay();if(dow===0)return'off';return'work';}
+
+  function calcEffectiveHours(checkInMs,checkOutMs){
+    if(!checkInMs||!checkOutMs||checkOutMs<=checkInMs)return 0;
+    var intervals=[{s:9*60,e:12*60},{s:13*60+30,e:17*60+30},{s:18*60+30,e:24*60}];
+    var inDate=new Date(checkInMs);var outDate=new Date(checkOutMs);
+    var inMin=inDate.getHours()*60+inDate.getMinutes();
+    var outMin=outDate.getHours()*60+outDate.getMinutes();
+    if(outMin<=inMin)outMin+=24*60;
+    var total=0;
+    intervals.forEach(function(iv){var s=iv.s,e=iv.e;if(e>24*60)e=24*60;var a=Math.max(s,inMin);var b=Math.min(e,outMin);if(b>a)total+=(b-a);});
+    return round1(total/60);
+  }
+
+  var $=function(id){return document.getElementById(id);};
+  var loginPage=$('loginPage'),appCard=$('appCard');
+  var loginError=$('loginError'),loginUsername=$('loginUsername'),loginPassword=$('loginPassword'),loginBtn=$('loginBtn');
+  var currentUserName=$('currentUserName'),currentUserRole=$('currentUserRole'),logoutBtn=$('logoutBtn');
+  var adminSection=$('adminSection');
+  var currentDateEl=$('currentDate'),mainTitle=$('mainTitle');
+  var dayTypeBadge=$('dayTypeBadge'),dayRuleHint=$('dayRuleHint');
+  var checkInBtn=$('checkInBtn'),checkOutBtn=$('checkOutBtn');
+  var checkInInfo=$('checkInInfo'),checkInTimeDisplay=$('checkInTimeDisplay'),checkInStatusBadge=$('checkInStatusBadge');
+  var taskSection=$('taskSection'),taskListContainer=$('taskListContainer'),taskProgressBadge=$('taskProgressBadge');
+  var taskHintBox=$('taskHintBox');
+  var reviewBtn=$('reviewBtn'),reviewSummarySection=$('reviewSummarySection'),reviewContent=$('reviewContent'),reviewTimeBadge=$('reviewTimeBadge');
+  var targetHoursDisplay=$('targetHoursDisplay'),compTimeDisplay=$('compTimeDisplay'),workStatus=$('workStatus');
+  var adminTeamName=$('adminTeamName'),adminTargetHours=$('adminTargetHours');
+  var adminHolidays=$('adminHolidays'),adminWorkdays=$('adminWorkdays');
+  var modalContainer=$('modalContainer');
+
+  function attemptLogin(){
+    var u = loginUsername.value.trim();
+    var p = loginPassword.value;
+    if(!u||!p){showLoginError('请输入用户名和密码');return;}
+    if(!USERS[u]){showLoginError('用户名或密码错误');return;}
+    if(USERS[u].password !== p){showLoginError('用户名或密码错误');return;}
+    currentUser = {username:u, name:USERS[u].name, role:USERS[u].role};
+    localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+    loginError.classList.add('hidden');
+    enterApp();
+  }
+  function showLoginError(msg){
+    loginError.textContent = msg;
+    loginError.classList.remove('hidden');
+  }
+  function enterApp(){
+    loginPage.classList.add('hidden');
+    appCard.classList.remove('hidden');
+    currentUserName.textContent = currentUser.name;
+    currentUserRole.textContent = currentUser.role === 'admin' ? '管理员' : '成员';
+    if(currentUser.role === 'admin'){
+      adminSection.classList.remove('hidden');
+    }else{
+      adminSection.classList.add('hidden');
+    }
+    loadState();
+    if(state.checkInTime){
+      var d1=new Date(state.checkInTime).toDateString();
+      var d2=new Date().toDateString();
+      if(d1!==d2){resetDaily();saveState();}
+    }
+    render();
+  }
+  function doLogout(){
+    if(!confirm('确定退出登录吗？'))return;
+    currentUser = null;
+    localStorage.removeItem(SESSION_KEY);
+    appCard.classList.add('hidden');
+    loginPage.classList.remove('hidden');
+    loginUsername.value = '';
+    loginPassword.value = '';
+    loginError.classList.add('hidden');
+  }
+  function tryRestoreSession(){
+    var saved = localStorage.getItem(SESSION_KEY);
+    if(saved){
+      try{
+        var s = JSON.parse(saved);
+        if(s && USERS[s.username]){
+          currentUser = {username:s.username, name:USERS[s.username].name, role:USERS[s.username].role};
+          enterApp();
+          return true;
+        }
+      }catch(e){}
+    }
+    return false;
+  }
+
+  function render(){
+    if(!currentUser) return;
+    if(state.teamName)mainTitle.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0b1d2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'+escapeHtml(state.teamName);
+    var now=new Date();
+    currentDateEl.textContent=now.toLocaleDateString('zh-CN',{month:'short',day:'numeric',weekday:'short'});
+    var dt=getDayType(now);
+    if(dt==='work'){
+      dayTypeBadge.textContent='工作日';dayTypeBadge.className='status-badge';
+      dayRuleHint.textContent='工作日：签到 ≤09:00，签退 ≥21:30，需填任务且预估总工时≥'+state.targetHours.toFixed(1)+'h；如有调休，签到即扣；若当日有调休，则不再计算加班。';
+    }else{
+      dayTypeBadge.textContent='休息日/节假日';dayTypeBadge.className='status-badge done';
+      dayRuleHint.textContent='休息日/节假日：签到签退时间灵活，需填任务，签退时填报总工时；有效工时=min(填报工时, 打卡区间有效工时)，全部计入调休。';
+    }
+    checkInBtn.disabled=!(state.isCheckedIn===false&&state.isCheckedOut===false);
+    checkOutBtn.disabled=!(state.isCheckedIn===true&&state.isCheckedOut===false);
+    if(state.isCheckedIn&&state.checkInTime){
+      checkInInfo.classList.remove('hidden');
+      checkInTimeDisplay.textContent='签到: '+formatTime(state.checkInTime);
+      checkInStatusBadge.textContent=state.isCheckedOut?'已签退':'已签到';
+      checkInStatusBadge.className='status-badge '+(state.isCheckedOut?'done':'');
+    }else checkInInfo.classList.add('hidden');
+    if(state.isCheckedIn&&!state.isCheckedOut){
+      taskSection.classList.remove('hidden');reviewSummarySection.classList.add('hidden');
+      renderTaskList();renderTaskHint();
+    }else if(state.isCheckedIn&&state.isCheckedOut&&state.reviewSubmitted){
+      taskSection.classList.add('hidden');reviewSummarySection.classList.remove('hidden');renderReviewSummary();
+    }else{
+      taskSection.classList.add('hidden');reviewSummarySection.classList.add('hidden');
+    }
+    targetHoursDisplay.textContent=state.targetHours.toFixed(1)+' h';
+    compTimeDisplay.textContent=state.compTime.toFixed(1)+' h';
+    compTimeDisplay.className='work-value'+(state.compTime<0?' negative':'');
+    if(state.isCheckedIn&&!state.isCheckedOut){workStatus.textContent='工作中';workStatus.className='status-badge';}
+    else if(state.isCheckedOut){workStatus.textContent='已签退';workStatus.className='status-badge done';}
+    else{workStatus.textContent='未签到';workStatus.className='status-badge off';}
+    if(currentUser.role === 'admin'){
+      adminTeamName.value=state.teamName;
+      adminTargetHours.value=state.targetHours;
+      adminHolidays.value=(state.holidaysExtra||[]).join('\n');
+      adminWorkdays.value=(state.workdaysExtra||[]).join('\n');
+    }
+  }
+
+  function renderTaskList(){
+    if(!state.tasks.length){taskListContainer.innerHTML='<div class="empty-message">签到时未提交任务</div>';return;}
+    var html='';
+    state.tasks.forEach(function(t,i){
+      var cls=t.completed?'completed':'';
+      var tag=t.name==='调休'?'<span style="color:#a05a00;font-size:.75rem">[调休]</span> ':'';
+      html+='<div class="task-item">'
+        +'<div class="task-check '+cls+'" data-action="toggle" data-index="'+i+'">'+(t.completed?'<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>':'')+'</div>'
+        +'<div class="task-text '+cls+'">'+tag+escapeHtml(t.name)+' <span style="color:#8c9db0;font-size:.78rem">预估 '+t.estimated+'h</span></div>'
+        +'<div style="font-size:.78rem;color:#5c6f87;padding-right:4px">'+(t.actual!=null?('实际 '+t.actual+'h'):'待复核')+'</div>'
+        +'</div>';
+    });
+    taskListContainer.innerHTML=html;
+    var done=state.tasks.filter(function(t){return t.completed;}).length;
+    taskProgressBadge.textContent=done+'/'+state.tasks.length;
+  }
+
+  function renderTaskHint(){
+    if(state.checkInType==='work'){
+      if(state.checkedInLeave>0){
+        taskHintBox.innerHTML='<div class="info-box">本日已调休 <b>'+state.checkedInLeave.toFixed(1)+'h</b>，签到已扣除。<br>签退时调休不复核，也不再扣。<br>因当日有调休，<b>不再计算加班</b>；签退时只看打卡区间有效工时是否足够覆盖「目标工时 - 调休时长 = '+(state.targetHours-state.checkedInLeave).toFixed(1)+'h」。不足部分会额外扣调休。</div>';
+      }else{
+        taskHintBox.innerHTML='<div class="info-box">工作日：签退时需逐条复核（是否完成 + 实际工时）。实际工时超出 '+state.targetHours.toFixed(1)+'h 的部分计入调休。</div>';
+      }
+    }else{
+      taskHintBox.innerHTML='<div class="info-box">休息日/节假日：签退时无需逐条复核，只需填写“当日总工时”。系统将取 min(填报工时, 打卡区间有效工时) 作为加班时长，全部计入调休余额。</div>';
+    }
+  }
+
+  function renderReviewSummary(){
+    var isWork=state.checkInType==='work';
+    var html='<div style="display:flex;justify-content:space-between;font-size:.9rem;color:#225;margin-bottom:12px;flex-wrap:wrap;gap:6px">'
+      +'<span>📅 签到 '+formatTime(state.checkInTime)+'</span>'
+      +'<span>🏁 签退 '+formatTime(state.checkOutTime)+'</span></div>';
+    html+='<div style="background:#fff;border-radius:20px;padding:14px;margin:12px 0">'
+      +'<div style="font-weight:600;margin-bottom:8px;color:#0b1d2e">'+(isWork?'工作日':'休息日/节假日')+' 汇总</div>'
+      +'<div style="font-size:.9rem;line-height:1.8">'
+      +'打卡区间有效工时：<b>'+state.dayEffectiveHours.toFixed(1)+' h</b><br>'
+      +'填报当日总工时：<b>'+state.dayReportedHours.toFixed(1)+' h</b><br>';
+    if(isWork){
+      if(state.checkedInLeave>0){
+        html+='本日调休（签到已扣）：<b>'+state.checkedInLeave.toFixed(1)+' h</b><br>'
+          +'签退时额外扣减调休：<b>'+state.leaveDeducted.toFixed(1)+' h</b><br>'
+          +'<span style="color:#5c6f87;font-size:.8rem">（当日有调休，不计加班；打卡不足部分额外扣调休）</span>';
+      }else{
+        html+='当日计入调休的加班：<b>+'+state.overtimeAdded.toFixed(1)+' h</b><br>'
+          +'<span style="color:#5c6f87;font-size:.8rem">（取 min(填报, 打卡区间) 后超出 '+state.targetHours.toFixed(1)+'h 的部分为加班）</span>';
+      }
+    }else{
+      html+='当日计入调休：<b>+'+state.overtimeAdded.toFixed(1)+' h</b><br>'
+        +'<span style="color:#5c6f87;font-size:.8rem">（取 min(填报, 打卡区间) 全额计入）</span>';
+    }
+    html+='</div></div>';
+    if(state.tasks.length){
+      html+='<div style="margin-top:8px;max-height:280px;overflow-y:auto">';
+      state.tasks.forEach(function(t){
+        var tag=t.name==='调休'?'<span style="color:#a05a00">[调休]</span> ':'';
+        html+='<div style="background:#fff;border-radius:14px;padding:10px 12px;margin-bottom:8px;border:1px solid #e0e9f2">'
+          +'<div style="font-weight:600;color:#0b1d2e;font-size:.9rem;word-break:break-word">'+tag+(t.completed?'✅ ':'⏳ ')+escapeHtml(t.name)+'</div>'
+          +'<div style="font-size:.8rem;color:#5c6f87;margin-top:4px">预估 '+t.estimated+'h　实际 '+(t.actual!=null?t.actual+'h':'—')+'</div></div>';
+      });
+      html+='</div>';
+    }
+    reviewContent.innerHTML=html;
+    reviewTimeBadge.textContent='签退于 '+formatTime(state.checkOutTime);
+  }
+
+  // ===== 签到弹窗（修复：输入不重绘）=====
+  function openCheckInModal(){
+    var isWork=state.checkInType==='work';
+    var tempTasks=[{name:'',estimated:''}];
+    function buildModal(){
+      var rows='';
+      tempTasks.forEach(function(t,i){
+        var isLeave=t.name.trim()==='调休';
+        rows+='<div class="modal-task-row">'
+          +'<input class="m-name" placeholder="任务名称（含“调休”项）" value="'+escapeHtml(t.name)+'" data-idx="'+i+'" data-field="name"'+(isLeave?' style="border-color:#f0c0c0;background:#fff4f4"':'')+'>'
+          +'<input class="m-hours" type="number" min="0" step="0.5" placeholder="小时" value="'+t.estimated+'" data-idx="'+i+'" data-field="estimated">'
+          +'<button class="m-del" data-idx="'+i+'">✕</button></div>';
+      });
+      var html='<div class="modal-mask"><div class="modal-box">'
+        +'<div class="modal-title">填写今日任务</div>'
+        +'<div class="modal-sub">日期类型：<b>'+(isWork?'工作日':'休息日/节假日')+'</b><br>'
+        +(isWork?('预估总工时需 ≥ '+state.targetHours.toFixed(1)+'h（含“调休”项）'):'填写今日工作任务（无总工时下限）')
+        +'</div>'
+        +'<div id="modalTasks">'+rows+'</div>'
+        +'<button class="admin-btn admin-btn-secondary" id="modalAddTask" style="width:100%;margin-top:6px">＋ 添加任务</button>'
+        +'<div id="modalDynamicArea"></div>'
+        +'<div class="modal-footer"><button class="btn btn-secondary" id="modalCancel">取消</button>'
+        +'<button class="btn btn-primary" id="modalConfirm">确认签到</button></div></div></div>';
+      modalContainer.innerHTML=html;
+      updateCheckInDynamic();
+      bindCheckInModalEvents();
+    }
+    function updateCheckInDynamic(){
+      var total=tempTasks.reduce(function(s,t){return s+(parseFloat(t.estimated)||0);},0);
+      var leaveSum=0;
+      tempTasks.forEach(function(t){if(t.name.trim()==='调休'){leaveSum+=(parseFloat(t.estimated)||0);}});
+      leaveSum=round1(leaveSum);
+      var ok=true;var errMsg='';
+      if(isWork){if(total<state.targetHours){ok=false;errMsg='预估总工时需 ≥ '+state.targetHours.toFixed(1)+'h';}}
+      tempTasks.forEach(function(t){
+        if(!t.name.trim()){ok=false;errMsg=errMsg||'任务名称不能为空';}
+        if(!(parseFloat(t.estimated)>0)){ok=false;errMsg=errMsg||'预估工时必须大于0';}
+      });
+      if(isWork&&leaveSum>0&&state.compTime<leaveSum){ok=false;errMsg='调休余额不足！当前余额 '+state.compTime.toFixed(1)+'h，本日调休 '+leaveSum.toFixed(1)+'h';}
+      var leaveWarn='';
+      if(isWork&&leaveSum>0){
+        leaveWarn='<div class="info-box'+(state.compTime<leaveSum?' danger':'')+'">本日调休：<b>'+leaveSum.toFixed(1)+'h</b>，签到即从余额扣除。<br>当前余额：<b>'+state.compTime.toFixed(1)+'h</b>，扣后余额：<b>'+(state.compTime-leaveSum).toFixed(1)+'h</b></div>';
+      }
+      var dyn=document.getElementById('modalDynamicArea');
+      if(dyn){
+        dyn.innerHTML='<div class="modal-summary"><span>任务数 '+tempTasks.length+'</span><span>预估总工时 <b>'+total.toFixed(1)+'h</b></span></div>'
+          +leaveWarn
+          +(errMsg?'<div class="info-box danger">'+errMsg+'</div>':'');
+      }
+      var confirmBtn=document.getElementById('modalConfirm');
+      if(confirmBtn)confirmBtn.disabled=!ok;
+    }
+    function bindCheckInModalEvents(){
+      var modalTasks=document.getElementById('modalTasks');
+      modalTasks.addEventListener('input',function(e){
+        var idx=parseInt(e.target.dataset.idx,10);var f=e.target.dataset.field;
+        if(isNaN(idx)||!f)return;
+        if(f==='estimated')tempTasks[idx].estimated=e.target.value;else tempTasks[idx].name=e.target.value;
+        // 只更新动态区域，不重绘整个弹窗
+        updateCheckInDynamic();
+        // 如果名称变成/不再是“调休”，只更新该输入框样式，不重绘
+        var inputEl=e.target;
+        if(f==='name'){
+          if(inputEl.classList.contains('m-name')){
+            if(inputEl.value.trim()==='调休'){
+              inputEl.style.borderColor='#f0c0c0';inputEl.style.background='#fff4f4';
+            }else{
+              inputEl.style.borderColor='';inputEl.style.background='';
+            }
+          }
+        }
+      });
+      modalTasks.addEventListener('click',function(e){
+        if(e.target.classList.contains('m-del')){
+          var idx=parseInt(e.target.dataset.idx,10);
+          if(tempTasks.length<=1){showToast('至少保留一项');return;}
+          tempTasks.splice(idx,1);
+          buildModal();
+        }
+      });
+      document.getElementById('modalAddTask').addEventListener('click',function(){
+        tempTasks.push({name:'',estimated:''});
+        buildModal();
+      });
+      document.getElementById('modalCancel').addEventListener('click',function(){modalContainer.innerHTML='';});
+      document.getElementById('modalConfirm').addEventListener('click',function(){
+        var total=tempTasks.reduce(function(s,t){return s+(parseFloat(t.estimated)||0);},0);
+        if(isWork&&total<state.targetHours){showToast('预估总工时不足');return;}
+        for(var i=0;i<tempTasks.length;i++){
+          if(!tempTasks[i].name.trim()){showToast('任务名称不能为空');return;}
+          if(!(parseFloat(tempTasks[i].estimated)>0)){showToast('预估工时必须大于0');return;}
+        }
+        var leaveSum=0;
+        tempTasks.forEach(function(t){if(t.name.trim()==='调休'){leaveSum+=(parseFloat(t.estimated)||0);}});
+        leaveSum=round1(leaveSum);
+        if(isWork&&leaveSum>0&&state.compTime<leaveSum){showToast('调休余额不足，无法签到');return;}
+        state.tasks=tempTasks.map(function(t,i){return {id:Date.now()+i,name:t.name.trim(),estimated:round1(parseFloat(t.estimated)),actual:null,completed:false};});
+        state.checkInTime=new Date().toISOString();
+        state.isCheckedIn=true;state.isCheckedOut=false;state.reviewSubmitted=false;
+        state.dayEffectiveHours=0;state.dayReportedHours=0;state.overtimeAdded=0;state.leaveDeducted=0;
+        state.checkedInLeave=isWork?leaveSum:0;
+        if(isWork&&leaveSum>0){state.compTime=round1(state.compTime-leaveSum);}
+        saveState();render();modalContainer.innerHTML='';
+        showToast('✅ 签到成功'+(isWork&&leaveSum>0?('，已扣除调休 '+leaveSum.toFixed(1)+'h'):''));
+      });
+    }
+    buildModal();
+  }
+
+  function openCheckOutModal(){
+    if(state.checkInType==='work')openWorkReviewModal();else openOffDayModal();
+  }
+
+  // ===== 工作日签退（修复：输入不重绘）=====
+  function openWorkReviewModal(){
+    var reviewTasks=state.tasks.map(function(t){
+      if(t.name==='调休'){return {id:t.id,name:t.name,estimated:t.estimated,actual:t.estimated,completed:true,isLeave:true};}
+      return {id:t.id,name:t.name,estimated:t.estimated,actual:null,completed:null,isLeave:false};
+    });
+    var hasLeave=state.checkedInLeave>0;
+    var reportedHours='';
+    function buildModal(){
+      var cards='';
+      reviewTasks.forEach(function(t,i){
+        if(t.isLeave){
+          cards+='<div class="review-card" style="background:#fff8e6;border-color:#ffe0a0">'
+            +'<div class="r-title"><span style="color:#a05a00">[调休]</span> '+escapeHtml(t.name)+' <span style="color:#8c9db0;font-size:.75rem">'+t.estimated+'h</span></div>'
+            +'<div style="font-size:.78rem;color:#7a5a10;margin-top:4px">已从签到扣除，本次不复核。</div></div>';
+        }else{
+          cards+='<div class="review-card" data-idx="'+i+'">'
+            +'<div class="r-title">'+escapeHtml(t.name)+' <span style="color:#8c9db0;font-size:.75rem">预估 '+t.estimated+'h</span></div>'
+            +'<div class="r-row"><label>是否完成</label>'
+            +'<select data-idx="'+i+'" data-field="completed">'
+            +'<option value="" '+(t.completed===null?'selected':'')+'>请选择</option>'
+            +'<option value="yes" '+(t.completed===true?'selected':'')+'>是</option>'
+            +'<option value="no" '+(t.completed===false?'selected':'')+'>否</option>'
+            +'</select>'
+            +'<label>实际工时</label>'
+            +'<input type="number" min="0" step="0.5" data-idx="'+i+'" data-field="actual" value="'+(t.actual!==null?t.actual:'')+'" placeholder="0">'
+            +'</div></div>';
+        }
+      });
+      var infoExtra='';
+      if(hasLeave){
+        infoExtra='<div class="info-box">本日有调休 '+state.checkedInLeave.toFixed(1)+'h，<b>不再计算加班</b>。<br>签退时只看打卡区间有效工时是否足够覆盖剩余 '+(state.targetHours-state.checkedInLeave).toFixed(1)+'h，不足部分额外扣调休。</div>';
+      }
+      var html='<div class="modal-mask"><div class="modal-box">'
+        +'<div class="modal-title">签退复核（工作日）</div>'
+        +'<div class="modal-sub">请逐条复核非调休任务，提交后不可修改。</div>'
+        +infoExtra
+        +'<div id="reviewTasks">'+cards+'</div>'
+        +'<div class="review-card" style="background:#f2f7ff">'
+        +'<div class="r-title">当日总工时</div>'
+        +'<div class="r-row"><label>填报总工时</label><input type="number" min="0" step="0.5" id="reportedHours" value="'+reportedHours+'" placeholder="例如 12"></div>'
+        +'<div class="r-hint">打卡区间有效工时：'+calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now()).toFixed(1)+' h</div>'
+        +'</div>'
+        +'<div id="reviewDynamicArea"></div>'
+        +'<div class="modal-footer"><button class="btn btn-secondary" id="reviewCancel">取消</button>'
+        +'<button class="btn btn-primary" id="reviewConfirm">提交复核</button></div></div></div>';
+      modalContainer.innerHTML=html;
+      updateWorkReviewDynamic();
+      bindWorkReviewEvents();
+    }
+    function updateWorkReviewDynamic(){
+      var realTotal=0;
+      reviewTasks.forEach(function(t){if(!t.isLeave&&t.actual!==null&&t.actual!=='')realTotal+=parseFloat(t.actual)||0;});
+      realTotal=round1(realTotal);
+      var allFilled=reviewTasks.every(function(t){
+        if(t.isLeave)return true;
+        return t.actual!==null&&t.actual!==''&&!isNaN(parseFloat(t.actual))&&t.completed!==null;
+      });
+      var ok = allFilled && reportedHours !== '' && !isNaN(parseFloat(reportedHours)) && parseFloat(reportedHours) >= 0;
+      var dyn=document.getElementById('reviewDynamicArea');
+      if(dyn){
+        dyn.innerHTML='<div class="modal-summary"><span>复核总工时 '+realTotal.toFixed(1)+'h</span><span>目标 '+state.targetHours.toFixed(1)+'h</span></div>';
+      }
+      var confirmBtn=document.getElementById('reviewConfirm');
+      if(confirmBtn)confirmBtn.disabled=!ok;
+    }
+    function bindWorkReviewEvents(){
+      var reviewTasksEl=document.getElementById('reviewTasks');
+      reviewTasksEl.addEventListener('input',function(e){
+        var idx=parseInt(e.target.dataset.idx,10);var f=e.target.dataset.field;
+        if(isNaN(idx)||!f)return;
+        if(f==='actual')reviewTasks[idx].actual=e.target.value;
+        updateWorkReviewDynamic();
+      });
+      reviewTasksEl.addEventListener('change',function(e){
+        if(e.target.tagName==='SELECT'){
+          var idx=parseInt(e.target.dataset.idx,10);var f=e.target.dataset.field;
+          if(f==='completed'){reviewTasks[idx].completed=(e.target.value==='yes');}
+          updateWorkReviewDynamic();
+        }
+      });
+      document.getElementById('reportedHours').addEventListener('input',function(e){
+        reportedHours=e.target.value;
+        updateWorkReviewDynamic();
+      });
+      document.getElementById('reviewCancel').addEventListener('click',function(){if(confirm('取消后本次复核内容将丢失，确定吗？'))modalContainer.innerHTML='';});
+      document.getElementById('reviewConfirm').addEventListener('click',function(){
+        for(var i=0;i<reviewTasks.length;i++){
+          var t=reviewTasks[i];if(t.isLeave)continue;
+          if(t.completed===null){showToast('请为每条任务选择是否完成');return;}
+          if(t.actual===''||t.actual===null||isNaN(parseFloat(t.actual))){showToast('请填写实际工时');return;}
+          if(parseFloat(t.actual)<0){showToast('实际工时不小于0');return;}
+        }
+        var reported=parseFloat(reportedHours);
+        if(isNaN(reported)||reported<0){showToast('请填写当日总工时');return;}
+        var eff=calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now());
+        var effective=Math.min(reported,eff);
+        var ot=0;var extraDeduct=0;var alertMsg='';
+        if(hasLeave){
+          var remaining=round1(state.targetHours-state.checkedInLeave);
+          if(effective<remaining){extraDeduct=round1(remaining-effective);alertMsg='打卡工时不足，额外扣除调休 '+extraDeduct.toFixed(1)+'h';}
+        }else{
+          ot=Math.max(0,round1(effective-state.targetHours));
+        }
+        var newBalance=round1(state.compTime+ot-extraDeduct);
+        state.tasks=reviewTasks.map(function(t){
+          if(t.isLeave){return {id:t.id,name:t.name,estimated:t.estimated,actual:t.estimated,completed:true};}
+          return {id:t.id,name:t.name,estimated:t.estimated,actual:round1(parseFloat(t.actual)),completed:t.completed};
+        });
+        state.checkOutTime=new Date().toISOString();
+        state.isCheckedOut=true;state.reviewSubmitted=true;
+        state.dayEffectiveHours=eff;state.dayReportedHours=round1(reported);
+        state.overtimeAdded=ot;state.leaveDeducted=extraDeduct;
+        state.compTime=newBalance;
+        saveState();render();modalContainer.innerHTML='';
+        var msg='🏁 签退成功。';
+        if(hasLeave){
+          msg+='本日有调休 '+state.checkedInLeave.toFixed(1)+'h，';
+          if(extraDeduct>0){msg+=alertMsg+'。';}
+          else{msg+='打卡充足，无需额外扣减。';}
+        }else{
+          msg+='加班 +'+ot.toFixed(1)+'h。';
+        }
+        msg+='余额 '+newBalance.toFixed(1)+'h';
+        showToast(msg,3500);
+        if(newBalance<0){setTimeout(function(){showToast('⚠️ 调休余额已为负数，请尽快补足',3500);},1000);}
+      });
+    }
+    buildModal();
+  }
+
+  // ===== 休息日签退（修复：输入不重绘）=====
+  function openOffDayModal(){
+    var reported='';
+    function buildModal(){
+      var eff=calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now());
+      var html='<div class="modal-mask"><div class="modal-box">'
+        +'<div class="modal-title">签退（休息日/节假日）</div>'
+        +'<div class="modal-sub">无需逐条复核任务，仅需填报当日总工时。系统取 min(填报, 打卡区间) 全额计入调休。</div>'
+        +'<div class="review-card" style="background:#f2f7ff">'
+        +'<div class="r-title">当日总工时</div>'
+        +'<div class="r-row"><label>填报工时</label><input type="number" min="0" step="0.5" id="offReported" value="'+reported+'" placeholder="例如 8"></div>'
+        +'<div class="r-hint">打卡区间有效工时：'+eff.toFixed(1)+' h（扣除午休和晚餐）</div>'
+        +'</div>'
+        +'<div class="modal-footer"><button class="btn btn-secondary" id="offCancel">取消</button>'
+        +'<button class="btn btn-primary" id="offConfirm">提交签退</button></div></div></div>';
+      modalContainer.innerHTML=html;
+      updateOffDayDynamic();
+      bindOffDayEvents();
+    }
+    function updateOffDayDynamic(){
+      var ok=reported!==''&&!isNaN(parseFloat(reported))&&parseFloat(reported)>=0;
+      var confirmBtn=document.getElementById('offConfirm');
+      if(confirmBtn)confirmBtn.disabled=!ok;
+      var hint=document.querySelector('#modalContainer .r-hint');
+      if(hint){
+        var eff=calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now());
+        hint.textContent='打卡区间有效工时：'+eff.toFixed(1)+' h（扣除午休和晚餐）';
+      }
+    }
+    function bindOffDayEvents(){
+      document.getElementById('offReported').addEventListener('input',function(e){
+        reported=e.target.value;
+        updateOffDayDynamic();
+      });
+      document.getElementById('offCancel').addEventListener('click',function(){if(confirm('取消后本次签退内容将丢失，确定吗？'))modalContainer.innerHTML='';});
+      document.getElementById('offConfirm').addEventListener('click',function(){
+        var r=parseFloat(reported);
+        if(isNaN(r)||r<0){showToast('请填写有效工时');return;}
+        var eff=calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now());
+        var gain=round1(Math.min(r,eff));
+        state.tasks.forEach(function(t){t.actual=t.estimated;t.completed=true;});
+        state.checkOutTime=new Date().toISOString();
+        state.isCheckedOut=true;state.reviewSubmitted=true;
+        state.dayEffectiveHours=eff;state.dayReportedHours=round1(r);
+        state.overtimeAdded=gain;state.leaveDeducted=0;
+        state.compTime=round1(state.compTime+gain);
+        saveState();render();modalContainer.innerHTML='';
+        showToast('🏁 签退成功，本次加班 +'+gain.toFixed(1)+'h，余额 '+state.compTime.toFixed(1)+'h');
+      });
+    }
+    buildModal();
+  }
+
+  function bindEvents(){
+    loginBtn.addEventListener('click', attemptLogin);
+    loginUsername.addEventListener('keypress',function(e){if(e.key==='Enter')loginPassword.focus();});
+    loginPassword.addEventListener('keypress',function(e){if(e.key==='Enter')attemptLogin();});
+    logoutBtn.addEventListener('click', doLogout);
+    checkInBtn.addEventListener('click',function(){
+      var now=new Date();
+      var dt=getDayType(now);
+      state.checkInType=dt;
+      if(dt==='work'){var mins=now.getHours()*60+now.getMinutes();if(mins>9*60){showToast('工作日签到必须在 09:00 之前');return;}}
+      openCheckInModal();
+    });
+    checkOutBtn.addEventListener('click',function(){
+      var now=new Date();
+      if(state.checkInTime){var d1=new Date(state.checkInTime).toDateString();var d2=now.toDateString();if(d1!==d2){showToast('不接受跨天签退');return;}}
+      if(state.checkInType==='work'){var mins=now.getHours()*60+now.getMinutes();if(mins<21*60+30){showToast('工作日签退必须在 21:30 之后');return;}}
+      openCheckOutModal();
+    });
+    reviewBtn.addEventListener('click',function(){
+      var now=new Date();
+      if(state.checkInTime){var d1=new Date(state.checkInTime).toDateString();var d2=now.toDateString();if(d1!==d2){showToast('不接受跨天签退');return;}}
+      if(state.checkInType==='work'){var mins=now.getHours()*60+now.getMinutes();if(mins<21*60+30){showToast('工作日签退必须在 21:30 之后');return;}}
+      openCheckOutModal();
+    });
+    taskListContainer.addEventListener('click',function(e){
+      var t=e.target.closest('[data-action]');
+      if(!t)return;
+      var i=parseInt(t.dataset.index,10);
+      if(state.tasks[i]&&!state.isCheckedOut){state.tasks[i].completed=!state.tasks[i].completed;saveState();renderTaskList();}
+    });
+    document.getElementById('saveAdminSettings').addEventListener('click',function(){
+      if(currentUser.role !== 'admin'){showToast('无权限');return;}
+      var team=adminTeamName.value.trim()||'团队打卡';
+      var th=parseFloat(adminTargetHours.value);
+      if(isNaN(th)||th<10){showToast('目标工时不能低于10');adminTargetHours.value=state.targetHours;return;}
+      if(th>24)th=24;
+      state.teamName=team;state.targetHours=round1(th);
+      var hols=adminHolidays.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return /^\d{4}-\d{2}-\d{2}$/.test(s);});
+      var wds=adminWorkdays.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return /^\d{4}-\d{2}-\d{2}$/.test(s);});
+      state.holidaysExtra=hols;state.workdaysExtra=wds;
+      saveState();render();showToast('设置已保存');
+    });
+    document.getElementById('resetAllData').addEventListener('click',function(){
+      if(currentUser.role !== 'admin'){showToast('无权限');return;}
+      if(confirm('清除当前账号的所有数据？')){
+        localStorage.removeItem(storageKey());
+        state=JSON.parse(JSON.stringify(DEFAULT_STATE));
+        saveState();render();showToast('已清除');
+      }
+    });
+  }
+
+  function init(){
+    bindEvents();
+    if(!tryRestoreSession()){
+      loginPage.classList.remove('hidden');
+      appCard.classList.add('hidden');
+    }
+  }
+  init();
+})();
+</script>
+</body>
+</html>
