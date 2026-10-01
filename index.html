@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>团队打卡 · 工时调休版</title>
+<title>团队打卡 · 飞书同步版</title>
 <style>
 *{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#f2f5f9}
@@ -89,6 +89,11 @@ h1 svg{width:26px;height:26px;flex-shrink:0}
 .user-bar .u-role{font-size:.7rem;color:#6b7f94;background:#fff;padding:3px 10px;border-radius:20px;border:1px solid #dbe5f0;margin-left:6px}
 .user-bar .u-logout{background:#fff;border:1px solid #d5e0ec;border-radius:20px;padding:6px 14px;font-size:.75rem;color:#5c6f87;cursor:pointer;min-height:32px}
 .user-bar .u-logout:active{background:#e4ecf5}
+/* 全员数据表格 */
+.all-records-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.all-records-table th,.all-records-table td{border:1px solid #e0e9f2;padding:8px 6px;text-align:left;word-break:break-word}
+.all-records-table th{background:#f2f7ff;color:#2a4058;font-weight:600;white-space:nowrap}
+.all-records-table tr:nth-child(even){background:#fafdff}
 @media(max-width:400px){.app-card{padding:16px 12px 20px;border-radius:24px}h1{font-size:1.3rem}.btn{padding:10px 14px;min-height:44px;font-size:.85rem}.work-value{font-size:1rem;padding:4px 12px}.task-text{font-size:.9rem}.admin-input{max-width:180px}}
 button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{width:0;background:transparent}
@@ -181,6 +186,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     <div class="info-box" style="margin-top:8px">调休余额由系统根据打卡自动增减，无法手动修改。</div>
   </div>
 
+  <!-- 管理员面板 -->
   <div class="section hidden" id="adminSection">
     <div class="section-title"><span>⚙️ 管理者设置</span><span class="status-badge" style="background:#e4eaf0;color:#0b1d2e">仅管理员可见</span></div>
     <div class="admin-panel">
@@ -206,6 +212,17 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       </div>
     </div>
   </div>
+
+  <!-- 管理员：查看全员打卡 -->
+  <div class="section hidden" id="adminViewSection">
+    <div class="section-title"><span>📊 全员打卡数据</span><span class="status-badge" style="background:#cfe4ff;color:#0b4a8a">飞书同步</span></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="admin-btn" id="loadAllRecords" style="flex:1">🔄 加载/刷新数据</button>
+    </div>
+    <div id="allRecordsArea" style="font-size:.8rem;color:#6b7f94;text-align:center;padding:20px 0;background:#fafdff;border-radius:16px;border:1px dashed #d0dfee">
+      点击上方按钮加载全员打卡数据
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast-tip"></div>
@@ -213,6 +230,15 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
 
 <script>
 (function(){
+  // ==================== 飞书配置 ====================
+  var FEISHU_CONFIG = {
+    appId: 'cli_aa349dc28f38dbc3',
+    appSecret: 'gCOSuFbq2tjSKo0JatSzuhC2Rjdfjzvx',  // 建议重置后改这里
+    appToken: 'JJjZbrRUpadubZs7g7pcmuxKnyg',
+    tableId: 'tblYn8NXdoJyx2k5'
+  };
+  // ==================================================
+
   var USERS = {
     'admin': { password: '123456', name: '管理员', role: 'admin' },
     'user1': { password: '123456', name: '成员1',  role: 'user' },
@@ -230,6 +256,102 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function round1(n){return Math.round(n*10)/10;}
 
+  // ==================== 飞书 API 工具 ====================
+  var _tenantToken = null;       // 缓存 tenant_access_token
+  var _tokenExpire = 0;
+
+  function feishuApi(path, method, body, headers){
+    var url = 'https://open.feishu.cn' + path;
+    var opts = {
+      method: method || 'GET',
+      headers: Object.assign({
+        'Content-Type': 'application/json; charset=utf-8'
+      }, headers || {})
+    };
+    if(body) opts.body = JSON.stringify(body);
+    return fetch(url, opts).then(function(res){return res.json();});
+  }
+
+  // 获取 tenant_access_token（带缓存）
+  function getTenantToken(){
+    var now = Date.now();
+    if(_tenantToken && now < _tokenExpire) return Promise.resolve(_tenantToken);
+    return feishuApi('/open-apis/auth/v3/tenant_access_token/internal', 'POST', {
+      app_id: FEISHU_CONFIG.appId,
+      app_secret: FEISHU_CONFIG.appSecret
+    }).then(function(res){
+      if(res.code !== 0) throw new Error('获取token失败: ' + res.msg);
+      _tenantToken = res.tenant_access_token;
+      _tokenExpire = now + (res.expire - 60) * 1000;
+      return _tenantToken;
+    });
+  }
+
+  // 上传（新增或更新）一条记录
+  // 如果本地有 record_id → 更新；否则新增并返回 record_id
+  function feishuUploadRecord(fields, existingRecordId){
+    return getTenantToken().then(function(token){
+      var headers = { 'Authorization': 'Bearer ' + token };
+      if(existingRecordId){
+        // 更新
+        return feishuApi('/open-apis/bitable/v1/apps/' + FEISHU_CONFIG.appToken + '/tables/' + FEISHU_CONFIG.tableId + '/records/' + existingRecordId,
+          'PUT', { fields: fields }, headers).then(function(res){
+            if(res.code !== 0) throw new Error('更新失败: ' + res.msg);
+            return existingRecordId;
+          });
+      } else {
+        // 新增
+        return feishuApi('/open-apis/bitable/v1/apps/' + FEISHU_CONFIG.appToken + '/tables/' + FEISHU_CONFIG.tableId + '/records',
+          'POST', { fields: fields }, headers).then(function(res){
+            if(res.code !== 0) throw new Error('新增失败: ' + res.msg);
+            return res.data.record.record_id;
+          });
+      }
+    });
+  }
+
+  // 读取所有记录（分页拉取）
+  function feishuLoadAllRecords(){
+    return getTenantToken().then(function(token){
+      var headers = { 'Authorization': 'Bearer ' + token };
+      var allRecords = [];
+      function fetchPage(pageToken){
+        var path = '/open-apis/bitable/v1/apps/' + FEISHU_CONFIG.appToken + '/tables/' + FEISHU_CONFIG.tableId + '/records?page_size=200';
+        if(pageToken) path += '&page_token=' + encodeURIComponent(pageToken);
+        return feishuApi(path, 'GET', null, headers).then(function(res){
+          if(res.code !== 0) throw new Error('读取失败: ' + res.msg);
+          allRecords = allRecords.concat(res.data.items || []);
+          if(res.data.has_more && res.data.page_token){
+            return fetchPage(res.data.page_token);
+          }
+          return allRecords;
+        });
+      }
+      return fetchPage(null);
+    });
+  }
+
+  // 字段值处理：飞书文本字段可能是数组或字符串
+  function textOf(v){
+    if(v === null || v === undefined) return '';
+    if(Array.isArray(v)){
+      return v.map(function(x){
+        if(typeof x === 'string') return x;
+        if(x && x.text) return x.text;
+        if(x && x.name) return x.name;
+        return '';
+      }).join('');
+    }
+    return String(v);
+  }
+  function numOf(v){
+    if(v === null || v === undefined) return 0;
+    if(typeof v === 'number') return v;
+    var n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  }
+
+  // ==================== 本地状态 ====================
   var BUILTIN_HOLIDAYS_2025=[
     '2025-01-01','2025-01-28','2025-01-29','2025-01-30','2025-01-31','2025-02-01','2025-02-02','2025-02-03','2025-02-04',
     '2025-04-04','2025-04-05','2025-04-06',
@@ -255,9 +377,10 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     checkedInLeave:0,
     targetHours:10.0,compTime:0.0,isCheckedIn:false,isCheckedOut:false,
     teamName:'团队打卡',holidaysExtra:[],workdaysExtra:[],
+    feishuRecordId:null   // 当前这一天在飞书里的记录 ID
   };
   var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-  var STORAGE_KEY_BASE = 'team_punch_v4_';
+  var STORAGE_KEY_BASE = 'team_punch_v5_';
 
   function storageKey(){return STORAGE_KEY_BASE + (currentUser ? currentUser.username : 'guest');}
 
@@ -282,6 +405,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     state.isCheckedIn=false;state.isCheckedOut=false;state.reviewSubmitted=false;
     state.checkInType=null;state.dayEffectiveHours=0;state.dayReportedHours=0;
     state.overtimeAdded=0;state.leaveDeducted=0;state.checkedInLeave=0;
+    state.feishuRecordId=null;
   }
   function saveState(){
     if(!currentUser) return;
@@ -290,7 +414,8 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       isCheckedIn:state.isCheckedIn,isCheckedOut:state.isCheckedOut,teamName:state.teamName,
       checkInType:state.checkInType,dayEffectiveHours:state.dayEffectiveHours,dayReportedHours:state.dayReportedHours,
       overtimeAdded:state.overtimeAdded,leaveDeducted:state.leaveDeducted,checkedInLeave:state.checkedInLeave,
-      holidaysExtra:state.holidaysExtra,workdaysExtra:state.workdaysExtra};
+      holidaysExtra:state.holidaysExtra,workdaysExtra:state.workdaysExtra,
+      feishuRecordId:state.feishuRecordId};
     localStorage.setItem(storageKey(),JSON.stringify(toSave));
   }
 
@@ -310,11 +435,72 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     return round1(total/60);
   }
 
+  // ==================== 飞书数据构造 ====================
+  function buildCheckInFields(){
+    var dateStr = state.checkInTime ? ymd(new Date(state.checkInTime)) : ymd(new Date());
+    var taskText = state.tasks.map(function(t){
+      return t.name + '（预估' + t.estimated + 'h）';
+    }).join('\n');
+    return {
+      '用户名': currentUser.username + '（' + currentUser.name + '）',
+      '日期': dateStr,
+      '签到时间': formatTime(state.checkInTime),
+      '签退时间': '',
+      '当日类型': state.checkInType === 'work' ? '工作日' : '休息日/节假日',
+      '任务': taskText,
+      '打卡区间有效工时': 0,
+      '填报总工时': 0,
+      '加班': 0,
+      '调休扣减': state.checkedInLeave || 0,
+      '调休余额': state.compTime
+    };
+  }
+
+  function buildCheckOutFields(){
+    var dateStr = state.checkInTime ? ymd(new Date(state.checkInTime)) : ymd(new Date());
+    var taskText = state.tasks.map(function(t){
+      var actual = t.actual != null ? t.actual : '';
+      return t.name + '（预估' + t.estimated + 'h，实际' + actual + 'h）';
+    }).join('\n');
+    return {
+      '用户名': currentUser.username + '（' + currentUser.name + '）',
+      '日期': dateStr,
+      '签到时间': formatTime(state.checkInTime),
+      '签退时间': formatTime(state.checkOutTime),
+      '当日类型': state.checkInType === 'work' ? '工作日' : '休息日/节假日',
+      '任务': taskText,
+      '打卡区间有效工时': state.dayEffectiveHours || 0,
+      '填报总工时': state.dayReportedHours || 0,
+      '加班': state.overtimeAdded || 0,
+      '调休扣减': state.leaveDeducted || 0,
+      '调休余额': state.compTime
+    };
+  }
+
+  // 上传到飞书（异步，不阻塞打卡）
+  function syncToFeishu(isCheckOut){
+    if(!currentUser) return;
+    var fields = isCheckOut ? buildCheckOutFields() : buildCheckInFields();
+    var existingId = state.feishuRecordId;
+    feishuUploadRecord(fields, existingId).then(function(recordId){
+      if(!existingId && recordId){
+        state.feishuRecordId = recordId;
+        saveState();
+      }
+      console.log('✅ 飞书同步成功');
+    }).catch(function(err){
+      console.warn('❌ 飞书同步失败:', err);
+      showToast('⚠️ 上传飞书失败，本地已保存');
+    });
+  }
+
+  // ==================== DOM ====================
   var $=function(id){return document.getElementById(id);};
   var loginPage=$('loginPage'),appCard=$('appCard');
   var loginError=$('loginError'),loginUsername=$('loginUsername'),loginPassword=$('loginPassword'),loginBtn=$('loginBtn');
   var currentUserName=$('currentUserName'),currentUserRole=$('currentUserRole'),logoutBtn=$('logoutBtn');
   var adminSection=$('adminSection');
+  var adminViewSection=$('adminViewSection');
   var currentDateEl=$('currentDate'),mainTitle=$('mainTitle');
   var dayTypeBadge=$('dayTypeBadge'),dayRuleHint=$('dayRuleHint');
   var checkInBtn=$('checkInBtn'),checkOutBtn=$('checkOutBtn');
@@ -326,7 +512,9 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   var adminTeamName=$('adminTeamName'),adminTargetHours=$('adminTargetHours');
   var adminHolidays=$('adminHolidays'),adminWorkdays=$('adminWorkdays');
   var modalContainer=$('modalContainer');
+  var allRecordsArea=$('allRecordsArea'),loadAllRecordsBtn=$('loadAllRecords');
 
+  // ==================== 登录 ====================
   function attemptLogin(){
     var u = loginUsername.value.trim();
     var p = loginPassword.value;
@@ -338,10 +526,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     loginError.classList.add('hidden');
     enterApp();
   }
-  function showLoginError(msg){
-    loginError.textContent = msg;
-    loginError.classList.remove('hidden');
-  }
+  function showLoginError(msg){loginError.textContent = msg;loginError.classList.remove('hidden');}
   function enterApp(){
     loginPage.classList.add('hidden');
     appCard.classList.remove('hidden');
@@ -349,8 +534,10 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     currentUserRole.textContent = currentUser.role === 'admin' ? '管理员' : '成员';
     if(currentUser.role === 'admin'){
       adminSection.classList.remove('hidden');
+      adminViewSection.classList.remove('hidden');
     }else{
       adminSection.classList.add('hidden');
+      adminViewSection.classList.add('hidden');
     }
     loadState();
     if(state.checkInTime){
@@ -385,6 +572,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     return false;
   }
 
+  // ==================== 渲染 ====================
   function render(){
     if(!currentUser) return;
     if(state.teamName)mainTitle.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0b1d2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'+escapeHtml(state.teamName);
@@ -495,7 +683,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     reviewTimeBadge.textContent='签退于 '+formatTime(state.checkOutTime);
   }
 
-  // ===== 签到弹窗（修复：输入不重绘）=====
+  // ==================== 签到弹窗 ====================
   function openCheckInModal(){
     var isWork=state.checkInType==='work';
     var tempTasks=[{name:'',estimated:''}];
@@ -553,32 +741,21 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         var idx=parseInt(e.target.dataset.idx,10);var f=e.target.dataset.field;
         if(isNaN(idx)||!f)return;
         if(f==='estimated')tempTasks[idx].estimated=e.target.value;else tempTasks[idx].name=e.target.value;
-        // 只更新动态区域，不重绘整个弹窗
         updateCheckInDynamic();
-        // 如果名称变成/不再是“调休”，只更新该输入框样式，不重绘
         var inputEl=e.target;
-        if(f==='name'){
-          if(inputEl.classList.contains('m-name')){
-            if(inputEl.value.trim()==='调休'){
-              inputEl.style.borderColor='#f0c0c0';inputEl.style.background='#fff4f4';
-            }else{
-              inputEl.style.borderColor='';inputEl.style.background='';
-            }
-          }
+        if(f==='name'&&inputEl.classList.contains('m-name')){
+          if(inputEl.value.trim()==='调休'){inputEl.style.borderColor='#f0c0c0';inputEl.style.background='#fff4f4';}
+          else{inputEl.style.borderColor='';inputEl.style.background='';}
         }
       });
       modalTasks.addEventListener('click',function(e){
         if(e.target.classList.contains('m-del')){
           var idx=parseInt(e.target.dataset.idx,10);
           if(tempTasks.length<=1){showToast('至少保留一项');return;}
-          tempTasks.splice(idx,1);
-          buildModal();
+          tempTasks.splice(idx,1);buildModal();
         }
       });
-      document.getElementById('modalAddTask').addEventListener('click',function(){
-        tempTasks.push({name:'',estimated:''});
-        buildModal();
-      });
+      document.getElementById('modalAddTask').addEventListener('click',function(){tempTasks.push({name:'',estimated:''});buildModal();});
       document.getElementById('modalCancel').addEventListener('click',function(){modalContainer.innerHTML='';});
       document.getElementById('modalConfirm').addEventListener('click',function(){
         var total=tempTasks.reduce(function(s,t){return s+(parseFloat(t.estimated)||0);},0);
@@ -596,19 +773,22 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         state.isCheckedIn=true;state.isCheckedOut=false;state.reviewSubmitted=false;
         state.dayEffectiveHours=0;state.dayReportedHours=0;state.overtimeAdded=0;state.leaveDeducted=0;
         state.checkedInLeave=isWork?leaveSum:0;
+        state.feishuRecordId=null;
         if(isWork&&leaveSum>0){state.compTime=round1(state.compTime-leaveSum);}
         saveState();render();modalContainer.innerHTML='';
         showToast('✅ 签到成功'+(isWork&&leaveSum>0?('，已扣除调休 '+leaveSum.toFixed(1)+'h'):''));
+        // 异步上传飞书
+        syncToFeishu(false);
       });
     }
     buildModal();
   }
 
+  // ==================== 签退 ====================
   function openCheckOutModal(){
     if(state.checkInType==='work')openWorkReviewModal();else openOffDayModal();
   }
 
-  // ===== 工作日签退（修复：输入不重绘）=====
   function openWorkReviewModal(){
     var reviewTasks=state.tasks.map(function(t){
       if(t.name==='调休'){return {id:t.id,name:t.name,estimated:t.estimated,actual:t.estimated,completed:true,isLeave:true};}
@@ -690,8 +870,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         }
       });
       document.getElementById('reportedHours').addEventListener('input',function(e){
-        reportedHours=e.target.value;
-        updateWorkReviewDynamic();
+        reportedHours=e.target.value;updateWorkReviewDynamic();
       });
       document.getElementById('reviewCancel').addEventListener('click',function(){if(confirm('取消后本次复核内容将丢失，确定吗？'))modalContainer.innerHTML='';});
       document.getElementById('reviewConfirm').addEventListener('click',function(){
@@ -734,12 +913,13 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         msg+='余额 '+newBalance.toFixed(1)+'h';
         showToast(msg,3500);
         if(newBalance<0){setTimeout(function(){showToast('⚠️ 调休余额已为负数，请尽快补足',3500);},1000);}
+        // 异步更新飞书
+        syncToFeishu(true);
       });
     }
     buildModal();
   }
 
-  // ===== 休息日签退（修复：输入不重绘）=====
   function openOffDayModal(){
     var reported='';
     function buildModal(){
@@ -762,17 +942,9 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       var ok=reported!==''&&!isNaN(parseFloat(reported))&&parseFloat(reported)>=0;
       var confirmBtn=document.getElementById('offConfirm');
       if(confirmBtn)confirmBtn.disabled=!ok;
-      var hint=document.querySelector('#modalContainer .r-hint');
-      if(hint){
-        var eff=calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now());
-        hint.textContent='打卡区间有效工时：'+eff.toFixed(1)+' h（扣除午休和晚餐）';
-      }
     }
     function bindOffDayEvents(){
-      document.getElementById('offReported').addEventListener('input',function(e){
-        reported=e.target.value;
-        updateOffDayDynamic();
-      });
+      document.getElementById('offReported').addEventListener('input',function(e){reported=e.target.value;updateOffDayDynamic();});
       document.getElementById('offCancel').addEventListener('click',function(){if(confirm('取消后本次签退内容将丢失，确定吗？'))modalContainer.innerHTML='';});
       document.getElementById('offConfirm').addEventListener('click',function(){
         var r=parseFloat(reported);
@@ -787,16 +959,63 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         state.compTime=round1(state.compTime+gain);
         saveState();render();modalContainer.innerHTML='';
         showToast('🏁 签退成功，本次加班 +'+gain.toFixed(1)+'h，余额 '+state.compTime.toFixed(1)+'h');
+        syncToFeishu(true);
       });
     }
     buildModal();
   }
 
+  // ==================== 管理员：加载全员数据 ====================
+  function loadAllRecordsHandler(){
+    allRecordsArea.innerHTML='<div style="padding:20px 0">⏳ 正在加载...</div>';
+    feishuLoadAllRecords().then(function(records){
+      if(!records.length){
+        allRecordsArea.innerHTML='<div style="padding:20px 0">暂无打卡记录</div>';
+        return;
+      }
+      // 按日期倒序 + 用户名
+      records.sort(function(a,b){
+        var fa=a.fields, fb=b.fields;
+        var da=textOf(fa['日期'])||'', db=textOf(fb['日期'])||'';
+        if(da!==db)return db.localeCompare(da);
+        return textOf(fa['用户名']).localeCompare(textOf(fb['用户名']));
+      });
+      var html='<div style="overflow-x:auto"><table class="all-records-table">'
+        +'<thead><tr>'
+        +'<th>日期</th><th>用户名</th><th>类型</th><th>签到</th><th>签退</th>'
+        +'<th>有效工时</th><th>填报工时</th><th>加班</th><th>调休扣减</th><th>调休余额</th>'
+        +'</tr></thead><tbody>';
+      records.forEach(function(rec){
+        var f=rec.fields;
+        html+='<tr>'
+          +'<td>'+escapeHtml(textOf(f['日期']))+'</td>'
+          +'<td>'+escapeHtml(textOf(f['用户名']))+'</td>'
+          +'<td>'+escapeHtml(textOf(f['当日类型']))+'</td>'
+          +'<td>'+escapeHtml(textOf(f['签到时间']))+'</td>'
+          +'<td>'+escapeHtml(textOf(f['签退时间']))+'</td>'
+          +'<td>'+numOf(f['打卡区间有效工时']).toFixed(1)+'</td>'
+          +'<td>'+numOf(f['填报总工时']).toFixed(1)+'</td>'
+          +'<td>'+numOf(f['加班']).toFixed(1)+'</td>'
+          +'<td>'+numOf(f['调休扣减']).toFixed(1)+'</td>'
+          +'<td>'+numOf(f['调休余额']).toFixed(1)+'</td>'
+          +'</tr>';
+      });
+      html+='</tbody></table></div>';
+      html+='<div style="margin-top:10px;font-size:.75rem;color:#8c9db0;text-align:center">共 '+records.length+' 条记录</div>';
+      allRecordsArea.innerHTML=html;
+    }).catch(function(err){
+      console.error(err);
+      allRecordsArea.innerHTML='<div style="padding:20px 0;color:#c33">❌ 加载失败：'+escapeHtml(err.message||'未知错误')+'<br><span style="font-size:.75rem;color:#8c9db0">请检查飞书配置或网络</span></div>';
+    });
+  }
+
+  // ==================== 事件绑定 ====================
   function bindEvents(){
     loginBtn.addEventListener('click', attemptLogin);
     loginUsername.addEventListener('keypress',function(e){if(e.key==='Enter')loginPassword.focus();});
     loginPassword.addEventListener('keypress',function(e){if(e.key==='Enter')attemptLogin();});
     logoutBtn.addEventListener('click', doLogout);
+
     checkInBtn.addEventListener('click',function(){
       var now=new Date();
       var dt=getDayType(now);
@@ -842,6 +1061,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         saveState();render();showToast('已清除');
       }
     });
+    loadAllRecordsBtn.addEventListener('click', loadAllRecordsHandler);
   }
 
   function init(){
