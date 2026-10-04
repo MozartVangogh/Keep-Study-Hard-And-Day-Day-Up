@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>团队打卡 · 定位记录版</title>
+<title>团队打卡 · 飞书同步版</title>
 <style>
 *{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#f2f5f9}
@@ -104,8 +104,8 @@ h1 svg{width:26px;height:26px;flex-shrink:0}
 .calendar-header .cal-nav button:active{background:#d7e3f0}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .calendar-grid .cal-weekday{font-size:.7rem;color:#8c9db0;text-align:center;padding:4px 0;font-weight:600}
-.calendar-grid .cal-day{background:#fff;border:1px solid #e4eaf0;border-radius:10px;min-height:54px;padding:4px 3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-size:.7rem;position:relative;overflow:hidden}
-.calendar-grid .cal-day.empty{background:transparent;border:none}
+.calendar-grid .cal-day{background:#fff;border:1px solid #e4eaf0;border-radius:10px;min-height:54px;padding:4px 3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-size:.7rem;position:relative;overflow:hidden;cursor:pointer}
+.calendar-grid .cal-day.empty{background:transparent;border:none;cursor:default}
 .calendar-grid .cal-day .d-num{font-weight:600;color:#0b1d2e;font-size:.78rem;line-height:1.1;margin-bottom:2px}
 .calendar-grid .cal-day .d-mark{font-size:.6rem;line-height:1.15;text-align:center;word-break:break-word}
 .calendar-grid .cal-day .d-mark.in{color:#0a5c3a}
@@ -129,10 +129,6 @@ h1 svg{width:26px;height:26px;flex-shrink:0}
 .summary-table th,.summary-table td{border:1px solid #e0e9f2;padding:5px 4px;text-align:left;word-break:break-word}
 .summary-table th{background:#f2f7ff;color:#2a4058;font-weight:600;white-space:nowrap}
 .summary-table tr:nth-child(even){background:#fafdff}
-
-/* 导出框 */
-.export-textarea{width:100%;border:1px solid #d5e0ec;border-radius:14px;padding:12px;font-size:.75rem;font-family:monospace;min-height:160px;outline:none;resize:vertical}
-.export-textarea:focus{border-color:#0b1d2e}
 
 @media(max-width:400px){.app-card{padding:16px 12px 20px;border-radius:24px}h1{font-size:1.3rem}.btn{padding:10px 14px;min-height:44px;font-size:.85rem}.work-value{font-size:1rem;padding:4px 12px}.task-text{font-size:.9rem}.admin-input{max-width:180px}.calendar-grid .cal-day{min-height:48px;padding:3px 2px;font-size:.65rem}}
 button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -250,16 +246,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     <div style="margin-top:6px;font-size:.7rem;color:#8c9db0;text-align:center">点击日历上的日期查看详情（含打卡位置）</div>
   </div>
 
-  <!-- 导出记录 -->
-  <div class="section">
-    <div class="section-title"><span>📤 导出我的记录</span><span class="status-badge" style="background:#eef3fa;color:#0b1d2e">发给管理员</span></div>
-    <div class="info-box" style="margin-top:0">下班后点下面的按钮，把生成的文字复制后发给管理员，管理员就能汇总所有人的打卡数据（含打卡位置）。</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <button class="admin-btn" id="exportTodayBtn" style="flex:1">📅 导出今日记录</button>
-      <button class="admin-btn admin-btn-secondary" id="exportAllBtn" style="flex:1">📦 导出全部记录</button>
-    </div>
-  </div>
-
   <!-- 管理员面板 -->
   <div class="section hidden" id="adminSection">
     <div class="section-title"><span>⚙️ 管理者设置</span><span class="status-badge" style="background:#e4eaf0;color:#0b1d2e">仅管理员可见</span></div>
@@ -285,7 +271,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         <button class="admin-btn admin-btn-secondary" id="resetAllData" style="flex:1">清除我的数据</button>
       </div>
       <div style="margin-top:12px;font-size:.75rem;color:#8c9db0;line-height:1.5">
-        📍 打卡不限制范围。签到时自动记录经纬度，可在日历中查看。飞书同步不变。
+        📍 打卡不限制范围。签到/签退时自动记录经纬度，可在日历中查看。飞书同步已开启。
       </div>
     </div>
   </div>
@@ -300,28 +286,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       点击上方按钮从飞书加载全员打卡数据
     </div>
   </div>
-
-  <!-- 管理员：导入记录（备用） -->
-  <div class="section hidden" id="adminImportSection">
-    <div class="section-title"><span>📥 导入成员记录（备用）</span><span class="status-badge" style="background:#eef3fa;color:#0b1d2e">仅管理员</span></div>
-    <div class="info-box" style="margin-top:0">飞书不可用时，可用成员导出的文字手动导入。</div>
-    <textarea class="export-textarea" id="importTextarea" placeholder="粘贴成员发来的导出文字..."></textarea>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="admin-btn" id="importBtn" style="flex:1">📥 导入</button>
-      <button class="admin-btn admin-btn-secondary" id="clearImportBtn" style="flex:1">清空输入框</button>
-    </div>
-  </div>
-
-  <!-- 管理员：本地汇总（备用） -->
-  <div class="section hidden" id="adminSummarySection">
-    <div class="section-title"><span>📊 本地汇总（备用）</span><span class="status-badge" id="summaryCount">0 条</span></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      <button class="admin-btn admin-btn-secondary" id="clearSummaryBtn" style="flex:1">🗑️ 清空</button>
-    </div>
-    <div id="summaryArea" style="font-size:.8rem;color:#6b7f94;text-align:center;padding:20px 0;background:#fafdff;border-radius:16px;border:1px dashed #d0dfee">
-      还没有导入任何成员数据
-    </div>
-  </div>
 </div>
 
 <div id="toast" class="toast-tip"></div>
@@ -329,14 +293,12 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
 
 <script>
 (function(){
-  // ==================== 飞书配置 ====================
   var FEISHU_CONFIG = {
     appId: 'cli_aa349dc28f38dbc3',
     appSecret: 'gCOSuFbq2tjSKo0JatSzuhC2Rjdfjzvx',
     appToken: 'JJjZbrRUpadubZs7g7pcmuxKnyg',
     tableId: 'tblYn8NXdoJyx2k5'
   };
-  // Cloudflare Worker 代理
   var CORS_PROXY = 'https://feisdaka.mf124609.workers.dev/?url=';
 
   var USERS = {
@@ -356,7 +318,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function round1(n){return Math.round(n*10)/10;}
 
-  // ==================== 飞书 API ====================
   var _tenantToken = null;
   var _tokenExpire = 0;
 
@@ -365,9 +326,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     var url = CORS_PROXY + encodeURIComponent(realUrl);
     var opts = {
       method: method || 'GET',
-      headers: Object.assign({
-        'Content-Type': 'application/json; charset=utf-8'
-      }, headers || {})
+      headers: Object.assign({'Content-Type': 'application/json; charset=utf-8'}, headers || {})
     };
     if(body) opts.body = JSON.stringify(body);
     return fetch(url, opts).then(function(res){return res.json();});
@@ -471,19 +430,16 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     targetHours:10.0,compTime:0.0,isCheckedIn:false,isCheckedOut:false,
     teamName:'团队打卡',holidaysExtra:[],workdaysExtra:[],
     feishuRecordId:null,
-    checkInLocation:null,
-    checkOutLocation:null
+    checkInLocation:null,checkOutLocation:null
   };
   var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-  var STORAGE_KEY_BASE = 'team_punch_v10_';
-  var HISTORY_KEY_BASE = 'team_punch_history_v10_';
-  var SUMMARY_KEY = 'team_punch_summary_v10';
+  var STORAGE_KEY_BASE = 'team_punch_v11_';
+  var HISTORY_KEY_BASE = 'team_punch_history_v11_';
 
   function storageKey(){return STORAGE_KEY_BASE + (currentUser ? currentUser.username : 'guest');}
   function historyKey(){return HISTORY_KEY_BASE + (currentUser ? currentUser.username : 'guest');}
 
   var historyMap = {};
-  var summaryMap = {};
 
   function loadHistory(){
     historyMap = {};
@@ -494,14 +450,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   function saveHistory(){
     if(!currentUser) return;
     localStorage.setItem(historyKey(), JSON.stringify(historyMap));
-  }
-  function loadSummary(){
-    summaryMap = {};
-    var saved = localStorage.getItem(SUMMARY_KEY);
-    if(saved){try{summaryMap = JSON.parse(saved);}catch(e){summaryMap={};}}
-  }
-  function saveSummary(){
-    localStorage.setItem(SUMMARY_KEY, JSON.stringify(summaryMap));
   }
 
   function loadState(){
@@ -536,8 +484,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       overtimeAdded:state.overtimeAdded,leaveDeducted:state.leaveDeducted,checkedInLeave:state.checkedInLeave,
       holidaysExtra:state.holidaysExtra,workdaysExtra:state.workdaysExtra,
       feishuRecordId:state.feishuRecordId,
-      checkInLocation:state.checkInLocation,
-      checkOutLocation:state.checkOutLocation};
+      checkInLocation:state.checkInLocation,checkOutLocation:state.checkOutLocation};
     localStorage.setItem(storageKey(),JSON.stringify(toSave));
   }
 
@@ -557,19 +504,13 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     return round1(total/60);
   }
 
-  // ==================== 定位（仅记录，不限制范围） ====================
   var currentPosition = null;
-
   function refreshLocation(){
     currentPosition = null;
     var badge = document.getElementById('locationBadge');
     var txt = document.getElementById('locationText');
     badge.classList.remove('ok','fail');
-    if(!navigator.geolocation){
-      txt.textContent = '不支持定位';
-      badge.classList.add('fail');
-      return;
-    }
+    if(!navigator.geolocation){txt.textContent='不支持定位';badge.classList.add('fail');return;}
     txt.textContent = '定位中...';
     navigator.geolocation.getCurrentPosition(
       function(pos){
@@ -586,15 +527,12 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     );
   }
 
-  // ==================== DOM ====================
   var $=function(id){return document.getElementById(id);};
   var loginPage=$('loginPage'),appCard=$('appCard');
   var loginError=$('loginError'),loginUsername=$('loginUsername'),loginPassword=$('loginPassword'),loginBtn=$('loginBtn');
   var currentUserName=$('currentUserName'),currentUserRole=$('currentUserRole'),logoutBtn=$('logoutBtn');
   var adminSection=$('adminSection');
   var adminFeishuSection=$('adminFeishuSection');
-  var adminImportSection=$('adminImportSection');
-  var adminSummarySection=$('adminSummarySection');
   var currentDateEl=$('currentDate'),mainTitle=$('mainTitle');
   var dayTypeBadge=$('dayTypeBadge'),dayRuleHint=$('dayRuleHint');
   var checkInBtn=$('checkInBtn'),checkOutBtn=$('checkOutBtn');
@@ -607,12 +545,8 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   var adminHolidays=$('adminHolidays'),adminWorkdays=$('adminWorkdays');
   var modalContainer=$('modalContainer');
   var calTitle=$('calTitle'),calGrid=$('calGrid'),calPrev=$('calPrev'),calNext=$('calNext'),dayDetail=$('dayDetail');
-  var exportTodayBtn=$('exportTodayBtn'),exportAllBtn=$('exportAllBtn');
-  var importTextarea=$('importTextarea'),importBtn=$('importBtn'),clearImportBtn=$('clearImportBtn');
-  var summaryArea=$('summaryArea'),summaryCount=$('summaryCount'),clearSummaryBtn=$('clearSummaryBtn');
   var feishuArea=$('feishuArea'),loadFeishuRecordsBtn=$('loadFeishuRecords');
 
-  // ==================== 登录 ====================
   function attemptLogin(){
     var u = loginUsername.value.trim();
     var p = loginPassword.value;
@@ -633,15 +567,9 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     if(currentUser.role === 'admin'){
       adminSection.classList.remove('hidden');
       adminFeishuSection.classList.remove('hidden');
-      adminImportSection.classList.remove('hidden');
-      adminSummarySection.classList.remove('hidden');
-      loadSummary();
-      renderSummary();
     }else{
       adminSection.classList.add('hidden');
       adminFeishuSection.classList.add('hidden');
-      adminImportSection.classList.add('hidden');
-      adminSummarySection.classList.add('hidden');
     }
     loadState();
     loadHistory();
@@ -681,7 +609,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     return false;
   }
 
-  // ==================== 渲染 ====================
   function render(){
     if(!currentUser) return;
     if(state.teamName)mainTitle.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0b1d2e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'+escapeHtml(state.teamName);
@@ -765,12 +692,8 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       +'<div style="font-size:.9rem;line-height:1.8">'
       +'打卡区间有效工时：<b>'+state.dayEffectiveHours.toFixed(1)+' h</b><br>'
       +'填报当日总工时：<b>'+state.dayReportedHours.toFixed(1)+' h</b><br>';
-    if(state.checkInLocation){
-      html+='签到位置：<b>'+state.checkInLocation.lat.toFixed(5)+', '+state.checkInLocation.lng.toFixed(5)+'</b><br>';
-    }
-    if(state.checkOutLocation){
-      html+='签退位置：<b>'+state.checkOutLocation.lat.toFixed(5)+', '+state.checkOutLocation.lng.toFixed(5)+'</b><br>';
-    }
+    if(state.checkInLocation) html+='签到位置：<b>'+state.checkInLocation.lat.toFixed(5)+', '+state.checkInLocation.lng.toFixed(5)+'</b><br>';
+    if(state.checkOutLocation) html+='签退位置：<b>'+state.checkOutLocation.lat.toFixed(5)+', '+state.checkOutLocation.lng.toFixed(5)+'</b><br>';
     if(isWork){
       if(state.checkedInLeave>0){
         html+='本日调休（签到已扣）：<b>'+state.checkedInLeave.toFixed(1)+' h</b><br>'
@@ -796,7 +719,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     reviewTimeBadge.textContent='签退于 '+formatTime(state.checkOutTime);
   }
 
-  // ==================== 日历 ====================
   var calYear = new Date().getFullYear();
   var calMonth = new Date().getMonth();
 
@@ -807,27 +729,22 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     var daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
     var today = new Date();
     var todayStr = ymd(today);
-
     var html = '';
     var weekdays = ['日','一','二','三','四','五','六'];
     weekdays.forEach(function(w){html += '<div class="cal-weekday">'+w+'</div>';});
     for(var i=0;i<startWeekday;i++){html += '<div class="cal-day empty"></div>';}
-
     for(var d=1; d<=daysInMonth; d++){
       var dateStr = calYear+'-'+pad(calMonth+1)+'-'+pad(d);
       var dateObj = new Date(calYear, calMonth, d);
       var dt = getDayType(dateObj);
       var isToday = (dateStr === todayStr);
       var rec = historyMap[dateStr];
-
       var cls = 'cal-day';
       if(isToday) cls += ' today';
       if(dt === 'off') cls += ' holiday';
-
       var markHtml = '';
       var tagHtml = '';
       if(dt === 'off') tagHtml = '<span class="day-tag">休</span>';
-
       if(rec){
         if(rec.checkIn) markHtml += '<div class="d-mark in">签'+escapeHtml(rec.checkIn)+'</div>';
         if(rec.checkOut) markHtml += '<div class="d-mark out">退'+escapeHtml(rec.checkOut)+'</div>';
@@ -842,7 +759,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
           markHtml += '<div class="d-mark absent">缺勤</div>';
         }
       }
-
       html += '<div class="'+cls+'" data-date="'+dateStr+'">'+tagHtml+'<div class="d-num">'+d+'</div>'+markHtml+'</div>';
     }
     calGrid.innerHTML = html;
@@ -882,9 +798,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     if(!historyMap[dateStr]) historyMap[dateStr] = {};
     historyMap[dateStr].checkIn = formatTime(state.checkInTime);
     historyMap[dateStr].dayType = state.checkInType === 'work' ? 'work' : 'off';
-    if(state.checkInLocation){
-      historyMap[dateStr].checkInLoc = {lat:state.checkInLocation.lat, lng:state.checkInLocation.lng};
-    }
+    if(state.checkInLocation) historyMap[dateStr].checkInLoc = {lat:state.checkInLocation.lat, lng:state.checkInLocation.lng};
     saveHistory();
   }
   function updateHistoryAfterCheckOut(){
@@ -894,9 +808,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     historyMap[dateStr].checkOut = formatTime(state.checkOutTime);
     historyMap[dateStr].effective = state.dayEffectiveHours;
     historyMap[dateStr].target = state.targetHours;
-    if(state.checkOutLocation){
-      historyMap[dateStr].checkOutLoc = {lat:state.checkOutLocation.lat, lng:state.checkOutLocation.lng};
-    }
+    if(state.checkOutLocation) historyMap[dateStr].checkOutLoc = {lat:state.checkOutLocation.lat, lng:state.checkOutLocation.lng};
     if(state.checkInType === 'work'){
       if(!state.dayEffectiveHours || state.dayEffectiveHours < state.targetHours){
         historyMap[dateStr].status = 'short';
@@ -909,7 +821,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     saveHistory();
   }
 
-  // ==================== 签到弹窗 ====================
   function openCheckInModal(){
     var isWork=state.checkInType==='work';
     var tempTasks=[{name:'',estimated:''}];
@@ -1000,7 +911,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         state.dayEffectiveHours=0;state.dayReportedHours=0;state.overtimeAdded=0;state.leaveDeducted=0;
         state.checkedInLeave=isWork?leaveSum:0;
         state.feishuRecordId=null;
-        // 记录签到位置
         state.checkInLocation = currentPosition ? {lat:currentPosition.lat, lng:currentPosition.lng} : null;
         state.checkOutLocation = null;
         if(isWork&&leaveSum>0){state.compTime=round1(state.compTime-leaveSum);}
@@ -1016,7 +926,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     buildModal();
   }
 
-  // ==================== 签退 ====================
   function openCheckOutModal(){
     if(state.checkInType==='work')openWorkReviewModal();else openOffDayModal();
   }
@@ -1205,7 +1114,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     buildModal();
   }
 
-  // ==================== 飞书同步 ====================
   function buildCheckInFields(){
     var dateStr = state.checkInTime ? ymd(new Date(state.checkInTime)) : ymd(new Date());
     var taskText = state.tasks.map(function(t){return t.name + '（预估' + t.estimated + 'h）';}).join('\n');
@@ -1256,204 +1164,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     });
   }
 
-  // ==================== 导出/导入 ====================
-  function buildExportText(records){
-    var lines = [];
-    lines.push('=== 打卡记录导出 ===');
-    lines.push('用户：' + currentUser.username + '（' + currentUser.name + '）');
-    lines.push('导出时间：' + new Date().toLocaleString('zh-CN'));
-    lines.push('');
-    records.forEach(function(r){
-      lines.push('---');
-      lines.push('日期：' + r.date);
-      lines.push('类型：' + (r.dayType === 'work' ? '工作日' : '休息日/节假日'));
-      lines.push('签到：' + (r.checkIn || '无'));
-      lines.push('签退：' + (r.checkOut || '无'));
-      lines.push('有效工时：' + (r.effective != null ? r.effective.toFixed(1) : '0.0'));
-      lines.push('填报工时：' + (r.reported != null ? r.reported.toFixed(1) : '0.0'));
-      lines.push('加班：' + (r.overtime != null ? r.overtime.toFixed(1) : '0.0'));
-      lines.push('调休扣减：' + (r.leaveDeduct != null ? r.leaveDeduct.toFixed(1) : '0.0'));
-      lines.push('调休余额：' + (r.balance != null ? r.balance.toFixed(1) : '0.0'));
-      lines.push('状态：' + (r.status || '正常'));
-      if(r.checkInLoc) lines.push('签到位置：' + r.checkInLoc.lat.toFixed(5) + ', ' + r.checkInLoc.lng.toFixed(5));
-      if(r.checkOutLoc) lines.push('签退位置：' + r.checkOutLoc.lat.toFixed(5) + ', ' + r.checkOutLoc.lng.toFixed(5));
-      if(r.tasks && r.tasks.length){
-        lines.push('任务：');
-        r.tasks.forEach(function(t){
-          lines.push('  · ' + t.name + '（预估' + t.estimated + 'h，实际' + (t.actual != null ? t.actual : '—') + 'h，' + (t.completed ? '已完成' : '未完成') + '）');
-        });
-      }
-    });
-    lines.push('');
-    lines.push('=== 导出结束 ===');
-    return lines.join('\n');
-  }
-
-  function exportTodayHandler(){
-    if(!state.checkInTime){showToast('今天还没有打卡记录');return;}
-    var dateStr = ymd(new Date(state.checkInTime));
-    var rec = historyMap[dateStr] || {};
-    var r = {
-      date: dateStr,
-      checkIn: rec.checkIn || formatTime(state.checkInTime),
-      checkOut: rec.checkOut || (state.checkOutTime ? formatTime(state.checkOutTime) : ''),
-      dayType: state.checkInType === 'work' ? 'work' : 'off',
-      effective: state.dayEffectiveHours || rec.effective || 0,
-      reported: state.dayReportedHours || rec.reported || 0,
-      overtime: state.overtimeAdded || rec.overtime || 0,
-      leaveDeduct: state.leaveDeducted || rec.leaveDeduct || 0,
-      balance: state.compTime,
-      status: rec.status || 'ok',
-      checkInLoc: state.checkInLocation || rec.checkInLoc || null,
-      checkOutLoc: state.checkOutLocation || rec.checkOutLoc || null,
-      tasks: state.tasks || []
-    };
-    showExportModal(buildExportText([r]));
-  }
-
-  function exportAllHandler(){
-    var keys = Object.keys(historyMap).sort();
-    if(!keys.length){showToast('还没有历史记录');return;}
-    var records = keys.map(function(k){
-      var rec = historyMap[k] || {};
-      return {
-        date: k, checkIn: rec.checkIn || '', checkOut: rec.checkOut || '',
-        dayType: rec.dayType || 'work', effective: rec.effective || 0,
-        reported: rec.reported || 0, overtime: rec.overtime || 0,
-        leaveDeduct: rec.leaveDeduct || 0, balance: rec.balance || state.compTime,
-        status: rec.status || 'ok',
-        checkInLoc: rec.checkInLoc || null,
-        checkOutLoc: rec.checkOutLoc || null,
-        tasks: rec.tasks || []
-      };
-    });
-    showExportModal(buildExportText(records));
-  }
-
-  function showExportModal(text){
-    var html = '<div class="modal-mask"><div class="modal-box">'
-      + '<div class="modal-title">导出记录</div>'
-      + '<div class="modal-sub">点击下方按钮复制，然后发给管理员</div>'
-      + '<textarea class="export-textarea" id="exportBox" readonly>' + escapeHtml(text) + '</textarea>'
-      + '<div class="modal-footer">'
-      + '<button class="btn btn-secondary" id="exportClose">关闭</button>'
-      + '<button class="btn btn-primary" id="exportCopy">📋 复制全部</button>'
-      + '</div></div></div>';
-    modalContainer.innerHTML = html;
-    document.getElementById('exportClose').addEventListener('click', function(){modalContainer.innerHTML='';});
-    document.getElementById('exportCopy').addEventListener('click', function(){
-      var ta = document.getElementById('exportBox');
-      ta.select();
-      try{
-        if(navigator.clipboard){
-          navigator.clipboard.writeText(text).then(function(){showToast('✅ 已复制到剪贴板');}).catch(function(){
-            document.execCommand('copy');showToast('✅ 已复制到剪贴板');
-          });
-        } else {
-          document.execCommand('copy');showToast('✅ 已复制到剪贴板');
-        }
-      }catch(e){showToast('复制失败，请手动选中复制');}
-    });
-  }
-
-  function importHandler(){
-    var text = importTextarea.value.trim();
-    if(!text){showToast('请先粘贴导出内容');return;}
-    if(text.indexOf('=== 打卡记录导出 ===') < 0){showToast('格式不对，请确认是打卡程序导出的内容');return;}
-    var lines = text.split('\n');
-    var username = '';
-    var records = [];
-    var cur = null;
-    var inTasks = false;
-    lines.forEach(function(line){
-      line = line.trim();
-      if(line.indexOf('用户：') === 0){username = line.substring(3).trim();}
-      else if(line === '---'){
-        if(cur) records.push(cur);
-        cur = {tasks: []};
-        inTasks = false;
-      } else if(cur){
-        if(line.indexOf('日期：') === 0) cur.date = line.substring(3).trim();
-        else if(line.indexOf('类型：') === 0) cur.dayType = line.substring(3).trim();
-        else if(line.indexOf('签到：') === 0) cur.checkIn = line.substring(3).trim();
-        else if(line.indexOf('签退：') === 0) cur.checkOut = line.substring(3).trim();
-        else if(line.indexOf('有效工时：') === 0) cur.effective = parseFloat(line.substring(5)) || 0;
-        else if(line.indexOf('填报工时：') === 0) cur.reported = parseFloat(line.substring(5)) || 0;
-        else if(line.indexOf('加班：') === 0) cur.overtime = parseFloat(line.substring(3)) || 0;
-        else if(line.indexOf('调休扣减：') === 0) cur.leaveDeduct = parseFloat(line.substring(5)) || 0;
-        else if(line.indexOf('调休余额：') === 0) cur.balance = parseFloat(line.substring(5)) || 0;
-        else if(line.indexOf('状态：') === 0) cur.status = line.substring(3).trim();
-        else if(line.indexOf('签到位置：') === 0){
-          var parts = line.substring(5).split(',');
-          if(parts.length >= 2) cur.checkInLoc = {lat:parseFloat(parts[0]), lng:parseFloat(parts[1])};
-        }
-        else if(line.indexOf('签退位置：') === 0){
-          var parts2 = line.substring(5).split(',');
-          if(parts2.length >= 2) cur.checkOutLoc = {lat:parseFloat(parts2[0]), lng:parseFloat(parts2[1])};
-        }
-        else if(line === '任务：') inTasks = true;
-        else if(inTasks && line.indexOf('·') === 0){
-          var m = line.match(/·\s*(.+?)（预估([\d.]+)h，实际([\d.]+|—)h，(已完成|未完成)）/);
-          if(m){
-            cur.tasks.push({name:m[1],estimated:parseFloat(m[2])||0,actual:m[3]==='—'?null:(parseFloat(m[3])||0),completed:m[4]==='已完成'});
-          }
-        }
-      }
-    });
-    if(cur && cur.date) records.push(cur);
-    if(!records.length){showToast('没有解析到任何记录');return;}
-    var added = 0, updated = 0;
-    records.forEach(function(r){
-      if(!r.date) return;
-      var key = username + '|' + r.date;
-      if(summaryMap[key]) updated++; else added++;
-      summaryMap[key] = {
-        username: username, date: r.date, dayType: r.dayType || '工作日',
-        checkIn: r.checkIn || '', checkOut: r.checkOut || '',
-        effective: r.effective || 0, reported: r.reported || 0,
-        overtime: r.overtime || 0, leaveDeduct: r.leaveDeduct || 0,
-        balance: r.balance || 0, status: r.status || '正常',
-        checkInLoc: r.checkInLoc || null, checkOutLoc: r.checkOutLoc || null,
-        tasks: r.tasks || []
-      };
-    });
-    saveSummary();renderSummary();importTextarea.value = '';
-    showToast('✅ 导入成功：新增 ' + added + ' 条，更新 ' + updated + ' 条');
-  }
-
-  function renderSummary(){
-    var keys = Object.keys(summaryMap).sort(function(a,b){
-      var da = summaryMap[a].date, db = summaryMap[b].date;
-      if(da !== db) return db.localeCompare(da);
-      return summaryMap[a].username.localeCompare(summaryMap[b].username);
-    });
-    summaryCount.textContent = keys.length + ' 条';
-    if(!keys.length){summaryArea.innerHTML = '还没有导入任何成员数据';return;}
-    var html = '<div style="overflow-x:auto"><table class="summary-table"><thead><tr>'
-      + '<th>日期</th><th>用户</th><th>类型</th><th>签到</th><th>签退</th>'
-      + '<th>有效</th><th>填报</th><th>加班</th><th>调休扣</th><th>余额</th><th>状态</th>'
-      + '</tr></thead><tbody>';
-    keys.forEach(function(k){
-      var r = summaryMap[k];
-      html += '<tr>'
-        + '<td>' + escapeHtml(r.date) + '</td>'
-        + '<td>' + escapeHtml(r.username) + '</td>'
-        + '<td>' + escapeHtml(r.dayType) + '</td>'
-        + '<td>' + escapeHtml(r.checkIn) + '</td>'
-        + '<td>' + escapeHtml(r.checkOut) + '</td>'
-        + '<td>' + (r.effective || 0).toFixed(1) + '</td>'
-        + '<td>' + (r.reported || 0).toFixed(1) + '</td>'
-        + '<td>' + (r.overtime || 0).toFixed(1) + '</td>'
-        + '<td>' + (r.leaveDeduct || 0).toFixed(1) + '</td>'
-        + '<td>' + (r.balance || 0).toFixed(1) + '</td>'
-        + '<td>' + escapeHtml(r.status) + '</td>'
-        + '</tr>';
-    });
-    html += '</tbody></table></div>';
-    summaryArea.innerHTML = html;
-  }
-
-  // ==================== 飞书全员数据 ====================
   function loadFeishuRecordsHandler(){
     feishuArea.innerHTML='<div style="padding:20px 0">⏳ 正在加载...</div>';
     feishuLoadAllRecords().then(function(records){
@@ -1492,7 +1202,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     });
   }
 
-  // ==================== 事件绑定 ====================
   function bindEvents(){
     loginBtn.addEventListener('click', attemptLogin);
     loginUsername.addEventListener('keypress',function(e){if(e.key==='Enter')loginPassword.focus();});
@@ -1500,7 +1209,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     logoutBtn.addEventListener('click', doLogout);
 
     checkInBtn.addEventListener('click',function(){
-      // 不限制范围，任何地点都能打卡
       var now=new Date();
       var dt=getDayType(now);
       state.checkInType=dt;
@@ -1560,28 +1268,17 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       if(calMonth > 11){calMonth = 0; calYear++;}
       renderCalendar();
     });
-    // 点击日历查看当天详情
     calGrid.addEventListener('click', function(e){
       var day = e.target.closest('.cal-day');
       if(!day || day.classList.contains('empty')) return;
       var dateStr = day.dataset.date;
       if(dateStr) showDayDetail(dateStr);
     });
-    exportTodayBtn.addEventListener('click', exportTodayHandler);
-    exportAllBtn.addEventListener('click', exportAllHandler);
-    importBtn.addEventListener('click', importHandler);
-    clearImportBtn.addEventListener('click', function(){importTextarea.value = '';});
-    clearSummaryBtn.addEventListener('click', function(){
-      if(confirm('确定清空所有导入的汇总数据吗？')){
-        summaryMap = {};saveSummary();renderSummary();showToast('已清空汇总');
-      }
-    });
     loadFeishuRecordsBtn.addEventListener('click', loadFeishuRecordsHandler);
   }
 
   function init(){
     bindEvents();
-    // 每 30 秒刷新位置
     setInterval(function(){ if(currentUser) refreshLocation(); }, 30000);
     if(!tryRestoreSession()){
       loginPage.classList.remove('hidden');
