@@ -94,7 +94,39 @@ h1 svg{width:26px;height:26px;flex-shrink:0}
 .all-records-table th,.all-records-table td{border:1px solid #e0e9f2;padding:8px 6px;text-align:left;word-break:break-word}
 .all-records-table th{background:#f2f7ff;color:#2a4058;font-weight:600;white-space:nowrap}
 .all-records-table tr:nth-child(even){background:#fafdff}
-@media(max-width:400px){.app-card{padding:16px 12px 20px;border-radius:24px}h1{font-size:1.3rem}.btn{padding:10px 14px;min-height:44px;font-size:.85rem}.work-value{font-size:1rem;padding:4px 12px}.task-text{font-size:.9rem}.admin-input{max-width:180px}}
+
+/* ============ 日历样式 ============ */
+.calendar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.calendar-header .cal-title{font-size:.95rem;font-weight:700;color:#0b1d2e}
+.calendar-header .cal-nav{display:flex;gap:6px}
+.calendar-header .cal-nav button{background:#eef3fa;border:1px solid #d5e0ec;border-radius:20px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;color:#0b1d2e}
+.calendar-header .cal-nav button:active{background:#d7e3f0}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calendar-grid .cal-weekday{font-size:.7rem;color:#8c9db0;text-align:center;padding:4px 0;font-weight:600}
+.calendar-grid .cal-day{background:#fff;border:1px solid #e4eaf0;border-radius:10px;min-height:54px;padding:4px 3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-size:.7rem;position:relative;overflow:hidden}
+.calendar-grid .cal-day.empty{background:transparent;border:none}
+.calendar-grid .cal-day .d-num{font-weight:600;color:#0b1d2e;font-size:.78rem;line-height:1.1;margin-bottom:2px}
+.calendar-grid .cal-day .d-mark{font-size:.6rem;line-height:1.15;text-align:center;word-break:break-word}
+.calendar-grid .cal-day .d-mark.in{color:#0a5c3a}
+.calendar-grid .cal-day .d-mark.out{color:#0b4a8a}
+.calendar-grid .cal-day .d-mark.leave{color:#a05a00}
+.calendar-grid .cal-day .d-mark.absent{color:#c33;font-weight:700}
+.calendar-grid .cal-day.today{border-color:#0b1d2e;border-width:2px}
+.calendar-grid .cal-day.holiday{background:#fff8f0}
+.calendar-grid .cal-day.absent-day{background:#fff4f4}
+.calendar-grid .cal-day .day-tag{position:absolute;top:2px;right:3px;font-size:.55rem;color:#a05a00;background:#ffe0a0;border-radius:6px;padding:0 4px;line-height:1.3}
+.calendar-grid .cal-day .day-tag.work{color:#0a5c3a;background:#d1f0e0}
+.calendar-grid .cal-day .day-tag.absent{color:#fff;background:#c33}
+.calendar-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:.7rem;color:#5c6f87}
+.calendar-legend .lg{display:flex;align-items:center;gap:4px}
+.calendar-legend .lg .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.calendar-legend .lg .dot.green{background:#0a5c3a}
+.calendar-legend .lg .dot.blue{background:#0b4a8a}
+.calendar-legend .lg .dot.orange{background:#a05a00}
+.calendar-legend .lg .dot.red{background:#c33}
+.calendar-legend .lg .dot.grey{background:#e4eaf0}
+
+@media(max-width:400px){.app-card{padding:16px 12px 20px;border-radius:24px}h1{font-size:1.3rem}.btn{padding:10px 14px;min-height:44px;font-size:.85rem}.work-value{font-size:1rem;padding:4px 12px}.task-text{font-size:.9rem}.admin-input{max-width:180px}.calendar-grid .cal-day{min-height:48px;padding:3px 2px;font-size:.65rem}}
 button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{width:0;background:transparent}
 </style>
@@ -186,6 +218,29 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     <div class="info-box" style="margin-top:8px">调休余额由系统根据打卡自动增减，无法手动修改。</div>
   </div>
 
+  <!-- 我的日历 -->
+  <div class="section">
+    <div class="section-title"><span>📆 我的打卡日历</span><span class="status-badge" style="background:#cfe4ff;color:#0b4a8a">飞书同步</span></div>
+    <div class="calendar-header">
+      <div class="cal-title" id="calTitle">—</div>
+      <div class="cal-nav">
+        <button id="calPrev">‹</button>
+        <button id="calNext">›</button>
+      </div>
+    </div>
+    <div class="calendar-grid" id="calGrid"></div>
+    <div class="calendar-legend">
+      <span class="lg"><span class="dot green"></span>签到</span>
+      <span class="lg"><span class="dot blue"></span>签退</span>
+      <span class="lg"><span class="dot orange"></span>调休</span>
+      <span class="lg"><span class="dot red"></span>缺勤</span>
+      <span class="lg"><span class="dot grey"></span>假期</span>
+    </div>
+    <div style="margin-top:10px">
+      <button class="admin-btn" id="loadMyCalendar" style="width:100%">🔄 加载/刷新日历</button>
+    </div>
+  </div>
+
   <!-- 管理员面板 -->
   <div class="section hidden" id="adminSection">
     <div class="section-title"><span>⚙️ 管理者设置</span><span class="status-badge" style="background:#e4eaf0;color:#0b1d2e">仅管理员可见</span></div>
@@ -237,6 +292,13 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     appToken: 'JJjZbrRUpadubZs7g7pcmuxKnyg',
     tableId: 'tblYn8NXdoJyx2k5'
   };
+
+  // ========== CORS 代理 ==========
+  // 飞书 API 不允许浏览器直接跨域调用，必须经过代理
+  // 这里用 corsproxy.io 免费代理
+  var CORS_PROXY = 'https://corsproxy.io/?url=';
+  // 备选（如果上面的挂了）：'https://api.allorigins.win/raw?url='
+
   // ==================================================
 
   var USERS = {
@@ -256,12 +318,13 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function round1(n){return Math.round(n*10)/10;}
 
-  // ==================== 飞书 API 工具 ====================
-  var _tenantToken = null;       // 缓存 tenant_access_token
+  // ==================== 飞书 API（走代理） ====================
+  var _tenantToken = null;
   var _tokenExpire = 0;
 
   function feishuApi(path, method, body, headers){
-    var url = 'https://open.feishu.cn' + path;
+    var realUrl = 'https://open.feishu.cn' + path;
+    var url = CORS_PROXY + encodeURIComponent(realUrl);
     var opts = {
       method: method || 'GET',
       headers: Object.assign({
@@ -272,7 +335,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     return fetch(url, opts).then(function(res){return res.json();});
   }
 
-  // 获取 tenant_access_token（带缓存）
   function getTenantToken(){
     var now = Date.now();
     if(_tenantToken && now < _tokenExpire) return Promise.resolve(_tenantToken);
@@ -288,19 +350,16 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   }
 
   // 上传（新增或更新）一条记录
-  // 如果本地有 record_id → 更新；否则新增并返回 record_id
   function feishuUploadRecord(fields, existingRecordId){
     return getTenantToken().then(function(token){
       var headers = { 'Authorization': 'Bearer ' + token };
       if(existingRecordId){
-        // 更新
         return feishuApi('/open-apis/bitable/v1/apps/' + FEISHU_CONFIG.appToken + '/tables/' + FEISHU_CONFIG.tableId + '/records/' + existingRecordId,
           'PUT', { fields: fields }, headers).then(function(res){
             if(res.code !== 0) throw new Error('更新失败: ' + res.msg);
             return existingRecordId;
           });
       } else {
-        // 新增
         return feishuApi('/open-apis/bitable/v1/apps/' + FEISHU_CONFIG.appToken + '/tables/' + FEISHU_CONFIG.tableId + '/records',
           'POST', { fields: fields }, headers).then(function(res){
             if(res.code !== 0) throw new Error('新增失败: ' + res.msg);
@@ -310,7 +369,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     });
   }
 
-  // 读取所有记录（分页拉取）
+  // 读取所有记录（分页）
   function feishuLoadAllRecords(){
     return getTenantToken().then(function(token){
       var headers = { 'Authorization': 'Bearer ' + token };
@@ -331,7 +390,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     });
   }
 
-  // 字段值处理：飞书文本字段可能是数组或字符串
   function textOf(v){
     if(v === null || v === undefined) return '';
     if(Array.isArray(v)){
@@ -377,7 +435,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     checkedInLeave:0,
     targetHours:10.0,compTime:0.0,isCheckedIn:false,isCheckedOut:false,
     teamName:'团队打卡',holidaysExtra:[],workdaysExtra:[],
-    feishuRecordId:null   // 当前这一天在飞书里的记录 ID
+    feishuRecordId:null
   };
   var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
   var STORAGE_KEY_BASE = 'team_punch_v5_';
@@ -477,7 +535,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     };
   }
 
-  // 上传到飞书（异步，不阻塞打卡）
   function syncToFeishu(isCheckOut){
     if(!currentUser) return;
     var fields = isCheckOut ? buildCheckOutFields() : buildCheckInFields();
@@ -513,6 +570,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   var adminHolidays=$('adminHolidays'),adminWorkdays=$('adminWorkdays');
   var modalContainer=$('modalContainer');
   var allRecordsArea=$('allRecordsArea'),loadAllRecordsBtn=$('loadAllRecords');
+  var calTitle=$('calTitle'),calGrid=$('calGrid'),calPrev=$('calPrev'),calNext=$('calNext'),loadMyCalendarBtn=$('loadMyCalendar');
 
   // ==================== 登录 ====================
   function attemptLogin(){
@@ -546,6 +604,10 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       if(d1!==d2){resetDaily();saveState();}
     }
     render();
+    // 初始化日历（默认显示本月）
+    calYear = new Date().getFullYear();
+    calMonth = new Date().getMonth();
+    renderCalendar();
   }
   function doLogout(){
     if(!confirm('确定退出登录吗？'))return;
@@ -683,6 +745,126 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     reviewTimeBadge.textContent='签退于 '+formatTime(state.checkOutTime);
   }
 
+  // ==================== 日历 ====================
+  var calYear = new Date().getFullYear();
+  var calMonth = new Date().getMonth(); // 0-11
+  var calDataMap = {};  // key: 'YYYY-MM-DD' → 记录
+  var calLoaded = false;
+
+  function ymd2(y,m,d){return y+'-'+pad(m+1)+'-'+pad(d);}
+
+  function renderCalendar(){
+    calTitle.textContent = calYear + '年' + (calMonth+1) + '月';
+    var firstDay = new Date(calYear, calMonth, 1);
+    var startWeekday = firstDay.getDay(); // 0=周日
+    var daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+    var today = new Date();
+    var todayStr = ymd(today);
+
+    var html = '';
+    var weekdays = ['日','一','二','三','四','五','六'];
+    weekdays.forEach(function(w){
+      html += '<div class="cal-weekday">'+w+'</div>';
+    });
+
+    // 前面的空格
+    for(var i=0;i<startWeekday;i++){
+      html += '<div class="cal-day empty"></div>';
+    }
+
+    // 每一天
+    for(var d=1; d<=daysInMonth; d++){
+      var dateStr = ymd2(calYear, calMonth, d);
+      var dateObj = new Date(calYear, calMonth, d);
+      var dt = getDayType(dateObj);
+      var isToday = (dateStr === todayStr);
+      var rec = calDataMap[dateStr];
+
+      var cls = 'cal-day';
+      if(isToday) cls += ' today';
+      if(dt === 'off') cls += ' holiday';
+
+      var markHtml = '';
+      var tagHtml = '';
+
+      if(dt === 'off'){
+        tagHtml = '<span class="day-tag">休</span>';
+      }
+
+      if(rec){
+        // 有打卡记录
+        var checkIn = textOf(rec['签到时间']);
+        var checkOut = textOf(rec['签退时间']);
+        var type = textOf(rec['当日类型']);
+        if(checkIn) markHtml += '<div class="d-mark in">签'+escapeHtml(checkIn)+'</div>';
+        if(checkOut) markHtml += '<div class="d-mark out">退'+escapeHtml(checkOut)+'</div>';
+        if(!checkIn && !checkOut){
+          // 没签到也没签退（极少见）
+        }
+      } else {
+        // 没有记录
+        if(dt === 'work' && dateObj < today && dateStr !== todayStr){
+          // 工作日 + 过去 + 没有记录 = 缺勤
+          cls += ' absent-day';
+          tagHtml = '<span class="day-tag absent">缺</span>';
+          markHtml += '<div class="d-mark absent">缺勤</div>';
+        }
+      }
+
+      // 缺勤判断（有签到但没签退，且已是过去日期）
+      if(rec){
+        var checkInV = textOf(rec['签到时间']);
+        var checkOutV = textOf(rec['签退时间']);
+        var effective = numOf(rec['打卡区间有效工时']);
+        if(dt === 'work' && dateObj < today && dateStr !== todayStr){
+          if(!checkInV || !checkOutV || effective < state.targetHours){
+            // 实际工时不足
+            cls += ' absent-day';
+            if(!checkInV) markHtml += '<div class="d-mark absent">缺勤</div>';
+            else if(!checkOutV) markHtml += '<div class="d-mark absent">未签退</div>';
+            else markHtml += '<div class="d-mark absent">工时不足</div>';
+          }
+        }
+      }
+
+      html += '<div class="'+cls+'">'
+        + tagHtml
+        + '<div class="d-num">'+d+'</div>'
+        + markHtml
+        + '</div>';
+    }
+
+    calGrid.innerHTML = html;
+  }
+
+  // 从飞书加载当前用户的日历数据
+  function loadMyCalendarHandler(){
+    if(!currentUser) return;
+    calGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px 0;color:#8c9db0">⏳ 加载中...</div>';
+    feishuLoadAllRecords().then(function(records){
+      // 只保留当前用户的记录
+      var myUserPrefix = currentUser.username + '（';
+      var myRecords = records.filter(function(r){
+        var u = textOf(r.fields['用户名']);
+        return u.indexOf(myUserPrefix) === 0;
+      });
+      // 建立日期映射
+      calDataMap = {};
+      myRecords.forEach(function(r){
+        var d = textOf(r.fields['日期']);
+        if(d){
+          // 同一日期只保留一条（理论上只有一条）
+          calDataMap[d] = r.fields;
+        }
+      });
+      calLoaded = true;
+      renderCalendar();
+    }).catch(function(err){
+      console.error(err);
+      calGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px 0;color:#c33">❌ 加载失败：'+escapeHtml(err.message||'未知错误')+'</div>';
+    });
+  }
+
   // ==================== 签到弹窗 ====================
   function openCheckInModal(){
     var isWork=state.checkInType==='work';
@@ -777,7 +959,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         if(isWork&&leaveSum>0){state.compTime=round1(state.compTime-leaveSum);}
         saveState();render();modalContainer.innerHTML='';
         showToast('✅ 签到成功'+(isWork&&leaveSum>0?('，已扣除调休 '+leaveSum.toFixed(1)+'h'):''));
-        // 异步上传飞书
         syncToFeishu(false);
       });
     }
@@ -913,7 +1094,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         msg+='余额 '+newBalance.toFixed(1)+'h';
         showToast(msg,3500);
         if(newBalance<0){setTimeout(function(){showToast('⚠️ 调休余额已为负数，请尽快补足',3500);},1000);}
-        // 异步更新飞书
         syncToFeishu(true);
       });
     }
@@ -973,7 +1153,6 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         allRecordsArea.innerHTML='<div style="padding:20px 0">暂无打卡记录</div>';
         return;
       }
-      // 按日期倒序 + 用户名
       records.sort(function(a,b){
         var fa=a.fields, fb=b.fields;
         var da=textOf(fa['日期'])||'', db=textOf(fb['日期'])||'';
@@ -1051,7 +1230,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       var hols=adminHolidays.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return /^\d{4}-\d{2}-\d{2}$/.test(s);});
       var wds=adminWorkdays.value.split('\n').map(function(s){return s.trim();}).filter(function(s){return /^\d{4}-\d{2}-\d{2}$/.test(s);});
       state.holidaysExtra=hols;state.workdaysExtra=wds;
-      saveState();render();showToast('设置已保存');
+      saveState();render();renderCalendar();showToast('设置已保存');
     });
     document.getElementById('resetAllData').addEventListener('click',function(){
       if(currentUser.role !== 'admin'){showToast('无权限');return;}
@@ -1062,6 +1241,17 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       }
     });
     loadAllRecordsBtn.addEventListener('click', loadAllRecordsHandler);
+    loadMyCalendarBtn.addEventListener('click', loadMyCalendarHandler);
+    calPrev.addEventListener('click', function(){
+      calMonth--;
+      if(calMonth < 0){calMonth = 11; calYear--;}
+      renderCalendar();
+    });
+    calNext.addEventListener('click', function(){
+      calMonth++;
+      if(calMonth > 11){calMonth = 0; calYear++;}
+      renderCalendar();
+    });
   }
 
   function init(){
