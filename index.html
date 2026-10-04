@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>团队打卡 · 飞书同步版</title>
+<title>团队打卡 · 限定区域版</title>
 <style>
 *{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#f2f5f9}
@@ -265,7 +265,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         <button class="admin-btn admin-btn-secondary" id="resetAllData" style="flex:1">清除我的数据</button>
       </div>
       <div style="margin-top:12px;font-size:.75rem;color:#8c9db0;line-height:1.5">
-        📍 打卡不限制范围。签到/签退时自动记录经纬度，可在日历中查看。飞书同步已开启。
+        📍 打卡范围：以公司为中心 50 米内。不在范围内无法打卡。
       </div>
     </div>
   </div>
@@ -286,6 +286,14 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
 
 <script>
 (function(){
+  // ============ 打卡点位 ============
+  // 半径固定 50 米。您可以改这里的 lat/lng 来调整点位。
+  var FIXED_POINTS = [
+    {id: 1, name: '公司', lat: 23.306942, lng: 113.574087, enabled: true}
+  ];
+  var POINT_RADIUS = 50;  // 米，不要改
+  // =================================
+
   var FEISHU_CONFIG = {
     appId: 'cli_aa349dc28f38dbc3',
     appSecret: 'gCOSuFbq2tjSKo0JatSzuhC2Rjdfjzvx',
@@ -310,6 +318,28 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   function pad(n){return n<10?'0'+n:''+n;}
   function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
   function round1(n){return Math.round(n*10)/10;}
+
+  // Haversine 距离计算（米）
+  function haversine(lat1,lon1,lat2,lon2){
+    var R=6371000;
+    var dLat=(lat2-lat1)*Math.PI/180;
+    var dLon=(lon2-lon1)*Math.PI/180;
+    var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  // 检查是否在任一打卡点范围内
+  function findMatchedPoint(pos){
+    if(!pos || !FIXED_POINTS.length) return null;
+    var best = null, bestDist = Infinity;
+    FIXED_POINTS.forEach(function(p){
+      if(p.enabled === false) return;
+      if(p.lat == null || p.lng == null) return;
+      var d = haversine(pos.lat, pos.lng, p.lat, p.lng);
+      if(d <= POINT_RADIUS && d < bestDist){ bestDist = d; best = p; }
+    });
+    return best;
+  }
 
   var _tenantToken = null;
   var _tokenExpire = 0;
@@ -426,8 +456,8 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     checkInLocation:null,checkOutLocation:null
   };
   var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-  var STORAGE_KEY_BASE = 'team_punch_v12_';
-  var HISTORY_KEY_BASE = 'team_punch_history_v12_';
+  var STORAGE_KEY_BASE = 'team_punch_v13_';
+  var HISTORY_KEY_BASE = 'team_punch_history_v13_';
 
   function storageKey(){return STORAGE_KEY_BASE + (currentUser ? currentUser.username : 'guest');}
   function historyKey(){return HISTORY_KEY_BASE + (currentUser ? currentUser.username : 'guest');}
@@ -498,26 +528,51 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
   }
 
   var currentPosition = null;
+  var locationStatus = 'pending'; // pending | ok | fail
+  var matchedPoint = null;
+
   function refreshLocation(){
     currentPosition = null;
-    var badge = document.getElementById('locationBadge');
-    var txt = document.getElementById('locationText');
-    badge.classList.remove('ok','fail');
-    if(!navigator.geolocation){txt.textContent='不支持定位';badge.classList.add('fail');return;}
-    txt.textContent = '定位中...';
+    locationStatus = 'pending';
+    matchedPoint = null;
+    updateLocationBadge();
+    if(!navigator.geolocation){
+      locationStatus = 'fail';
+      document.getElementById('locationText').textContent = '不支持定位';
+      updateLocationBadge();
+      return;
+    }
+    document.getElementById('locationText').textContent = '定位中...';
     navigator.geolocation.getCurrentPosition(
       function(pos){
         currentPosition = {lat:pos.coords.latitude, lng:pos.coords.longitude};
-        badge.classList.add('ok');
-        txt.textContent = '📍 ' + currentPosition.lat.toFixed(5) + ', ' + currentPosition.lng.toFixed(5);
+        matchedPoint = findMatchedPoint(currentPosition);
+        locationStatus = matchedPoint ? 'ok' : 'fail';
+        updateLocationBadge();
       },
       function(err){
         currentPosition = null;
-        badge.classList.add('fail');
-        txt.textContent = '定位失败';
+        matchedPoint = null;
+        locationStatus = 'fail';
+        updateLocationBadge();
       },
       {enableHighAccuracy:true, timeout:10000, maximumAge:30000}
     );
+  }
+
+  function updateLocationBadge(){
+    var badge = document.getElementById('locationBadge');
+    var txt = document.getElementById('locationText');
+    badge.classList.remove('ok','fail');
+    if(locationStatus === 'pending'){
+      txt.textContent = '定位中...';
+    } else if(locationStatus === 'ok' && matchedPoint){
+      badge.classList.add('ok');
+      txt.textContent = '📍 ' + matchedPoint.name;
+    } else if(locationStatus === 'fail'){
+      badge.classList.add('fail');
+      txt.textContent = currentPosition ? '不在打卡范围内' : '定位失败';
+    }
   }
 
   var $=function(id){return document.getElementById(id);};
@@ -826,7 +881,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
           +'<input class="m-hours" type="number" min="0" step="0.5" placeholder="小时" value="'+t.estimated+'" data-idx="'+i+'" data-field="estimated">'
           +'<button class="m-del" data-idx="'+i+'">✕</button></div>';
       });
-      var locLine = currentPosition ? ('打卡位置：<b>'+currentPosition.lat.toFixed(5)+', '+currentPosition.lng.toFixed(5)+'</b>') : '打卡位置：<b style="color:#c33">未获取到定位</b>';
+      var locLine = matchedPoint ? ('打卡位置：<b>'+escapeHtml(matchedPoint.name)+'</b>（'+currentPosition.lat.toFixed(5)+', '+currentPosition.lng.toFixed(5)+'）') : '打卡位置：<b style="color:#c33">未在范围内</b>';
       var html='<div class="modal-mask"><div class="modal-box">'
         +'<div class="modal-title">填写今日任务</div>'
         +'<div class="modal-sub">'+locLine+'<br>日期类型：<b>'+(isWork?'工作日':'休息日/节假日')+'</b><br>'
@@ -911,8 +966,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
         updateHistoryAfterCheckIn();
         renderCalendar();
         modalContainer.innerHTML='';
-        var posMsg = currentPosition ? (' @ '+currentPosition.lat.toFixed(5)+','+currentPosition.lng.toFixed(5)) : '';
-        showToast('✅ 签到成功'+posMsg+(isWork&&leaveSum>0?('，已扣除调休 '+leaveSum.toFixed(1)+'h'):''));
+        showToast('✅ 签到成功'+(matchedPoint?(' @ '+matchedPoint.name):'')+(isWork&&leaveSum>0?('，已扣除调休 '+leaveSum.toFixed(1)+'h'):''));
         syncToFeishu(false);
       });
     }
@@ -955,7 +1009,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
       if(hasLeave){
         infoExtra='<div class="info-box">本日有调休 '+state.checkedInLeave.toFixed(1)+'h，<b>不再计算加班</b>。<br>签退时只看打卡区间有效工时是否足够覆盖剩余 '+(state.targetHours-state.checkedInLeave).toFixed(1)+'h，不足部分额外扣调休。</div>';
       }
-      var locLine = currentPosition ? ('签退位置：<b>'+currentPosition.lat.toFixed(5)+', '+currentPosition.lng.toFixed(5)+'</b>') : '签退位置：<b style="color:#c33">未获取到定位</b>';
+      var locLine = matchedPoint ? ('签退位置：<b>'+escapeHtml(matchedPoint.name)+'</b>（'+currentPosition.lat.toFixed(5)+', '+currentPosition.lng.toFixed(5)+'）') : '签退位置：<b style="color:#c33">未在范围内</b>';
       var html='<div class="modal-mask"><div class="modal-box">'
         +'<div class="modal-title">签退复核（工作日）</div>'
         +'<div class="modal-sub">'+locLine+'<br>请逐条复核非调休任务，提交后不可修改。</div>'
@@ -1061,7 +1115,7 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     var reported='';
     function buildModal(){
       var eff=calcEffectiveHours(new Date(state.checkInTime).getTime(),Date.now());
-      var locLine = currentPosition ? ('签退位置：<b>'+currentPosition.lat.toFixed(5)+', '+currentPosition.lng.toFixed(5)+'</b>') : '签退位置：<b style="color:#c33">未获取到定位</b>';
+      var locLine = matchedPoint ? ('签退位置：<b>'+escapeHtml(matchedPoint.name)+'</b>（'+currentPosition.lat.toFixed(5)+', '+currentPosition.lng.toFixed(5)+'）') : '签退位置：<b style="color:#c33">未在范围内</b>';
       var html='<div class="modal-mask"><div class="modal-box">'
         +'<div class="modal-title">签退（休息日/节假日）</div>'
         +'<div class="modal-sub">'+locLine+'<br>无需逐条复核任务，仅需填报当日总工时。系统取 min(填报, 打卡区间) 全额计入调休。</div>'
@@ -1201,26 +1255,44 @@ button,.task-check{cursor:pointer;-webkit-tap-highlight-color:transparent}
     loginPassword.addEventListener('keypress',function(e){if(e.key==='Enter')attemptLogin();});
     logoutBtn.addEventListener('click', doLogout);
 
+    // 签到按钮：校验范围
     checkInBtn.addEventListener('click',function(){
+      if(locationStatus === 'pending'){showToast('正在定位，请稍候...');refreshLocation();return;}
+      if(locationStatus === 'fail' || !matchedPoint){
+        showToast('不在打卡范围内，或定位失败，无法签到');
+        refreshLocation();
+        return;
+      }
       var now=new Date();
       var dt=getDayType(now);
       state.checkInType=dt;
       if(dt==='work'){var mins=now.getHours()*60+now.getMinutes();if(mins>9*60){showToast('工作日签到必须在 09:00 之前');return;}}
-      if(!currentPosition){showToast('未获取到定位，正在重新定位...');refreshLocation();return;}
       openCheckInModal();
     });
+    // 签退按钮：校验范围
     checkOutBtn.addEventListener('click',function(){
+      if(locationStatus === 'pending'){showToast('正在定位，请稍候...');refreshLocation();return;}
+      if(locationStatus === 'fail' || !matchedPoint){
+        showToast('不在打卡范围内，或定位失败，无法签退');
+        refreshLocation();
+        return;
+      }
       var now=new Date();
       if(state.checkInTime){var d1=new Date(state.checkInTime).toDateString();var d2=now.toDateString();if(d1!==d2){showToast('不接受跨天签退');return;}}
       if(state.checkInType==='work'){var mins=now.getHours()*60+now.getMinutes();if(mins<21*60+30){showToast('工作日签退必须在 21:30 之后');return;}}
-      if(!currentPosition){showToast('未获取到定位，正在重新定位...');refreshLocation();return;}
       openCheckOutModal();
     });
+    // 签退按钮（任务区）：校验范围
     reviewBtn.addEventListener('click',function(){
+      if(locationStatus === 'pending'){showToast('正在定位，请稍候...');refreshLocation();return;}
+      if(locationStatus === 'fail' || !matchedPoint){
+        showToast('不在打卡范围内，或定位失败，无法签退');
+        refreshLocation();
+        return;
+      }
       var now=new Date();
       if(state.checkInTime){var d1=new Date(state.checkInTime).toDateString();var d2=now.toDateString();if(d1!==d2){showToast('不接受跨天签退');return;}}
       if(state.checkInType==='work'){var mins=now.getHours()*60+now.getMinutes();if(mins<21*60+30){showToast('工作日签退必须在 21:30 之后');return;}}
-      if(!currentPosition){showToast('未获取到定位，正在重新定位...');refreshLocation();return;}
       openCheckOutModal();
     });
     taskListContainer.addEventListener('click',function(e){
